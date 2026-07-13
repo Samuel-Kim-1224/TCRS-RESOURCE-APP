@@ -19,6 +19,13 @@ export function formatDDMMYYYY(iso) {
   return `${d}/${m}/${y}`;
 }
 
+/** dd/mm/yy for indent summary (e.g. 010726). */
+export function formatDDMMYY(iso) {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-');
+  return `${d}${m}${y.slice(2)}`;
+}
+
 export function addDays(iso, n) {
   const d = parseISO(iso);
   d.setDate(d.getDate() + n);
@@ -60,6 +67,15 @@ export const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
+
+const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** e.g. "25 Jul" for bus summary day labels. */
+export function formatDayLabel(iso) {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-').map(Number);
+  return `${d} ${MONTH_SHORT[m - 1]}`;
+}
 
 export function monthKey(iso) {
   return iso.slice(0, 7); // yyyy-mm

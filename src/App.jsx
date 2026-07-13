@@ -8,6 +8,7 @@ import IndentSummaryTab from './components/IndentSummaryTab.jsx';
 import AddConductModal from './components/AddConductModal.jsx';
 import { loadConducts, saveConducts, loadCwos, saveCwos } from './utils/storage.js';
 import { toISO } from './utils/dateUtils.js';
+import { applyTheme, getStoredTheme, saveTheme } from './utils/theme.js';
 
 const TABS = [
   { key: 'calendar', label: 'Calendar' },
@@ -29,22 +30,53 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('calendar');
   const [modalOpen, setModalOpen] = useState(false);
   const [prefillDate, setPrefillDate] = useState(null);
+  const [editEntry, setEditEntry] = useState(null);
+  const [theme, setTheme] = useState(() => getStoredTheme());
 
   useEffect(() => saveConducts(conducts), [conducts]);
   useEffect(() => saveCwos(cwos), [cwos]);
+  useEffect(() => {
+    applyTheme(theme);
+    saveTheme(theme);
+  }, [theme]);
 
-  const handleSaveConduct = (entry) => {
-    setConducts((prev) => [...prev, { ...entry, id: crypto.randomUUID() }]);
+  const toggleTheme = () => {
+    setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
+  };
+
+  const closeModal = () => {
     setModalOpen(false);
     setPrefillDate(null);
+    setEditEntry(null);
+  };
+
+  const handleSaveConduct = (entry) => {
+    if (entry.id) {
+      setConducts((prev) => prev.map((c) => (c.id === entry.id ? { ...entry, id: c.id } : c)));
+    } else {
+      setConducts((prev) => [...prev, { ...entry, id: crypto.randomUUID() }]);
+    }
+    closeModal();
+  };
+
+  const handleDeleteConduct = (id) => {
+    setConducts((prev) => prev.filter((c) => c.id !== id));
+    closeModal();
   };
 
   const handleSaveCwo = (companyCode, cwo) => {
     setCwos((prev) => ({ ...prev, [companyCode]: cwo }));
   };
 
-  const openModal = (dateIso) => {
+  const openAddModal = (dateIso) => {
+    setEditEntry(null);
     setPrefillDate(dateIso || null);
+    setModalOpen(true);
+  };
+
+  const openEditModal = (entry) => {
+    setEditEntry(entry);
+    setPrefillDate(null);
     setModalOpen(true);
   };
 
@@ -55,9 +87,18 @@ export default function App() {
           <span className="app-title-mark">SCH2</span>
           <span className="app-title-sub">Conduct &amp; Indent Scheduler</span>
         </div>
-        <button className="btn btn-primary" onClick={() => openModal()}>
-          + Add Conduct
-        </button>
+        <div className="app-header-actions">
+          <button
+            className="btn"
+            onClick={toggleTheme}
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+          </button>
+          <button className="btn btn-primary" onClick={() => openAddModal()}>
+            + Add Conduct
+          </button>
+        </div>
       </header>
 
       <nav className="tab-bar">
@@ -78,10 +119,15 @@ export default function App() {
 
       <main className="tab-content">
         {activeTab === 'calendar' && (
-          <CalendarTab monthKey={monthKey} conducts={conducts} onDayClick={openModal} />
+          <CalendarTab
+            monthKey={monthKey}
+            conducts={conducts}
+            onDayClick={openAddModal}
+            onConductClick={openEditModal}
+          />
         )}
         {activeTab === 'vehicle' && <VehicleTab conducts={conducts} cwos={cwos} monthKey={monthKey} />}
-        {activeTab === 'bus' && <BusTab />}
+        {activeTab === 'bus' && <BusTab conducts={conducts} monthKey={monthKey} />}
         {activeTab === 'medic' && <MedicTab conducts={conducts} monthKey={monthKey} />}
         {activeTab === 'summary' && <IndentSummaryTab conducts={conducts} monthKey={monthKey} />}
       </main>
@@ -90,12 +136,11 @@ export default function App() {
         <AddConductModal
           cwos={cwos}
           initialDate={prefillDate}
+          editEntry={editEntry}
           onSave={handleSaveConduct}
           onSaveCwo={handleSaveCwo}
-          onClose={() => {
-            setModalOpen(false);
-            setPrefillDate(null);
-          }}
+          onDelete={handleDeleteConduct}
+          onClose={closeModal}
         />
       )}
     </div>

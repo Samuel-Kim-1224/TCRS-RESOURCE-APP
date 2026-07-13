@@ -1,12 +1,14 @@
+import { buildMonthRows, BUS_HEADERS } from '../utils/buildRows.js';
 import SpreadsheetTable from './SpreadsheetTable.jsx';
 
-export default function BusTab() {
+export default function BusTab({ conducts, monthKey }) {
+  const rows = buildMonthRows(conducts, {}, monthKey, 'bus');
   return (
     <SpreadsheetTable
-      headers={['Date', 'Company', 'Conduct', 'Pickup', 'Drop-off', 'Pax']}
-      rows={[]}
-      filename="bus-troop-lift.csv"
-      emptyLabel="Bus / troop-lift indenting isn't defined yet — this tab is a placeholder ready for those rules."
+      headers={BUS_HEADERS}
+      rows={rows}
+      filename={`bus-troop-lift-${monthKey}.csv`}
+      emptyLabel="No bus / troop-lift indents for this month. Add BTP, HG, IFC, BIC, or ISAD conducts."
     />
   );
 }

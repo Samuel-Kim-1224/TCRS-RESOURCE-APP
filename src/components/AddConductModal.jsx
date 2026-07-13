@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { COMPANIES } from '../data/companies.js';
 import {
   CONDUCTS,
@@ -10,7 +10,11 @@ import {
   CC_NUMBER_OPTIONS,
   SOC_PES_OPTIONS,
   VENUE_OPTIONS,
+  BTP_RANGE_OPTIONS,
+  FC_SITE_OPTIONS,
+  SITTEST_SITE_OPTIONS,
 } from '../data/conducts.js';
+import { addDays, dateRange, formatDDMMYYYY } from '../utils/dateUtils.js';
 
 const emptyForm = {
   companyCode: '',
@@ -21,6 +25,9 @@ const emptyForm = {
   ccNumber: '',
   socPes: '',
   venue: '',
+  btpRange: '',
+  fcSite: '',
+  sitTestSite: 'Sittest Site 1',
   period: '',
   status: 'conducting',
   pes: '',
@@ -28,21 +35,71 @@ const emptyForm = {
   endDate: '',
 };
 
-export default function AddConductModal({ cwos, onSave, onSaveCwo, onClose, initialDate }) {
-  const [form, setForm] = useState(() => (initialDate ? { ...emptyForm, date: initialDate } : emptyForm));
+function entryToForm(entry) {
+  if (!entry) return emptyForm;
+  return {
+    companyCode: entry.companyCode || '',
+    conductKey: entry.conductKey || '',
+    rmKm: entry.rmKm || '',
+    rmPes: entry.rmPes || '',
+    erNumber: entry.erNumber || '',
+    ccNumber: entry.ccNumber || '',
+    socPes: entry.socPes || '',
+    venue: entry.venue || '',
+    btpRange: entry.btpRange || '',
+    fcSite: entry.fcSite || '',
+    sitTestSite: entry.sitTestSite || 'Sittest Site 1',
+    period: entry.period || '',
+    status: entry.status || 'conducting',
+    pes: entry.pes || '',
+    date: entry.date || '',
+    endDate: entry.endDate || '',
+  };
+}
+
+export default function AddConductModal({
+  cwos,
+  onSave,
+  onSaveCwo,
+  onDelete,
+  onClose,
+  initialDate,
+  editEntry,
+}) {
+  const isEdit = !!editEntry;
+  const [form, setForm] = useState(() => {
+    if (editEntry) return entryToForm(editEntry);
+    return initialDate ? { ...emptyForm, date: initialDate } : emptyForm;
+  });
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
 
   const def = form.conductKey ? conductDef(form.conductKey) : null;
-  const ampmEnabled = def ? AMPM_ENABLED_CATEGORIES.includes(def.category) : false;
-  const isMultiDay = !!def?.multiDay;
+  const ampmEnabled =
+    def &&
+    (AMPM_ENABLED_CATEGORIES.includes(def.category) || def.busSession);
+  const hasFixedDays = !!def?.fixedDays;
+  const isManualMultiDay = !!def?.multiDay && !def?.fixedDays;
 
   const cwo = cwos[form.companyCode] || { name: '', number: '' };
-  const [cwoName, setCwoName] = useState('');
-  const [cwoNumber, setCwoNumber] = useState('');
+  const [cwoName, setCwoName] = useState(() => {
+    if (editEntry) return (cwos[editEntry.companyCode] || {}).name || '';
+    return '';
+  });
+  const [cwoNumber, setCwoNumber] = useState(() => {
+    if (editEntry) return (cwos[editEntry.companyCode] || {}).number || '';
+    return '';
+  });
 
-  const effectiveCwoName = cwo.name || cwoName;
-  const effectiveCwoNumber = cwo.number || cwoNumber;
-  const cwoNeedsInput = !!form.companyCode && !cwo.name;
+  useEffect(() => {
+    if (form.companyCode) {
+      const saved = cwos[form.companyCode] || { name: '', number: '' };
+      setCwoName(saved.name);
+      setCwoNumber(saved.number);
+    }
+  }, [form.companyCode, cwos]);
+
+  const effectiveCwoName = cwoName.trim();
+  const effectiveCwoNumber = cwoNumber.trim();
 
   const subFieldsValid = useMemo(() => {
     if (!def?.subFields) return true;
@@ -56,53 +113,85 @@ export default function AddConductModal({ cwos, onSave, onSaveCwo, onClose, init
     !!form.conductKey &&
     subFieldsValid &&
     (!ampmEnabled || !!form.period) &&
-    !!form.pes &&
+    (!!form.pes || !!def?.calendarOnly) &&
     !!form.date &&
-    (!isMultiDay || !!form.endDate);
+    (!isManualMultiDay || !!form.endDate);
+
+  const previewEndDate = useMemo(() => {
+    if (!form.date || !def?.fixedDays) return null;
+    return addDays(form.date, def.fixedDays - 1);
+  }, [form.date, def]);
+
+  const previewDays = useMemo(() => {
+    if (!form.date) return [];
+    const end = hasFixedDays ? previewEndDate : form.endDate || form.date;
+    if (!end) return [];
+    return dateRange(form.date, end);
+  }, [form.date, form.endDate, hasFixedDays, previewEndDate]);
 
   const handleSelectCompany = (code) => {
     set({ companyCode: code });
-    setCwoName('');
-    setCwoNumber('');
   };
 
   const handleSelectConduct = (key) => {
+    const newDef = conductDef(key);
     set({
       conductKey: key,
-      period: '',
+      period: newDef?.busSession ? 'AM' : '',
       rmKm: '',
       rmPes: '',
       erNumber: '',
       ccNumber: '',
       socPes: '',
       venue: '',
+      btpRange: '',
+      fcSite: '',
+      sitTestSite: key === 'IFC' ? 'Sittest Site 1' : '',
       endDate: '',
     });
   };
 
   const handleSubmit = () => {
     if (!isValid) return;
-    if (cwoNeedsInput) {
-      onSaveCwo(form.companyCode, { name: cwoName.trim(), number: cwoNumber.trim() });
+    const savedCwo = cwos[form.companyCode];
+    if (
+      !savedCwo ||
+      savedCwo.name !== effectiveCwoName ||
+      savedCwo.number !== effectiveCwoNumber
+    ) {
+      onSaveCwo(form.companyCode, { name: effectiveCwoName, number: effectiveCwoNumber });
     }
+
+    const endDate = hasFixedDays
+      ? addDays(form.date, def.fixedDays - 1)
+      : isManualMultiDay
+        ? form.endDate
+        : form.date;
+
     onSave({
       ...form,
-      endDate: isMultiDay ? form.endDate : form.date,
+      endDate,
+      id: editEntry?.id,
     });
+  };
+
+  const handleDelete = () => {
+    if (editEntry && onDelete) {
+      onDelete(editEntry.id);
+    }
   };
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Add Conduct</h2>
+          <h2>{isEdit ? 'Edit Conduct' : 'Add Conduct'}</h2>
           <button className="btn btn-ghost" onClick={onClose} aria-label="Close">
             ×
           </button>
         </div>
 
         <div className="modal-body">
-          {/* Company */}
           <section className="form-section">
             <label className="form-label">Company</label>
             <div className="pill-row">
@@ -119,34 +208,25 @@ export default function AddConductModal({ cwos, onSave, onSaveCwo, onClose, init
             </div>
             {form.companyCode && (
               <div className="cwo-box">
-                {cwo.name ? (
-                  <div className="cwo-readout">
-                    CWO on file: <strong>{cwo.name}</strong> · {cwo.number}
-                  </div>
-                ) : (
-                  <div className="cwo-inputs">
-                    <div className="field-hint">
-                      No CWO saved yet for {form.companyCode} COY — enter it once, it's remembered next time.
-                    </div>
-                    <input
-                      className="text-input"
-                      placeholder="CWO name"
-                      value={cwoName}
-                      onChange={(e) => setCwoName(e.target.value)}
-                    />
-                    <input
-                      className="text-input"
-                      placeholder="CWO phone number"
-                      value={cwoNumber}
-                      onChange={(e) => setCwoNumber(e.target.value)}
-                    />
-                  </div>
-                )}
+                <div className="cwo-inputs">
+                  <div className="field-hint">CWO for {form.companyCode} COY</div>
+                  <input
+                    className="text-input"
+                    placeholder="CWO name"
+                    value={cwoName}
+                    onChange={(e) => setCwoName(e.target.value)}
+                  />
+                  <input
+                    className="text-input"
+                    placeholder="CWO phone number"
+                    value={cwoNumber}
+                    onChange={(e) => setCwoNumber(e.target.value)}
+                  />
+                </div>
               </div>
             )}
           </section>
 
-          {/* Conduct */}
           <section className="form-section">
             <label className="form-label">Conduct</label>
             <div className="pill-row pill-row-wrap">
@@ -163,7 +243,6 @@ export default function AddConductModal({ cwos, onSave, onSaveCwo, onClose, init
             </div>
           </section>
 
-          {/* Conduct sub-fields */}
           {form.conductKey === 'RM' && (
             <section className="form-section form-section-sub">
               <div className="sub-field">
@@ -266,7 +345,61 @@ export default function AddConductModal({ cwos, onSave, onSaveCwo, onClose, init
             </section>
           )}
 
-          {/* AM/PM */}
+          {form.conductKey === 'BTP' && (
+            <section className="form-section form-section-sub">
+              <div className="sub-field">
+                <label className="form-label-sm">Range</label>
+                <div className="pill-row">
+                  {BTP_RANGE_OPTIONS.map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      className={`pill pill-sm ${form.btpRange === v ? 'pill-active' : ''}`}
+                      onClick={() => set({ btpRange: v })}
+                    >
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {form.conductKey === 'IFC' && (
+            <section className="form-section form-section-sub">
+              <div className="sub-field">
+                <label className="form-label-sm">FC Site</label>
+                <div className="pill-row pill-row-wrap">
+                  {FC_SITE_OPTIONS.map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      className={`pill pill-sm ${form.fcSite === v ? 'pill-active' : ''}`}
+                      onClick={() => set({ fcSite: v })}
+                    >
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="sub-field">
+                <label className="form-label-sm">SIT Test Site</label>
+                <div className="pill-row">
+                  {SITTEST_SITE_OPTIONS.map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      className={`pill pill-sm ${form.sitTestSite === v ? 'pill-active' : ''}`}
+                      onClick={() => set({ sitTestSite: v })}
+                    >
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+
           <section className="form-section">
             <label className="form-label">Period</label>
             <div className="pill-row">
@@ -282,12 +415,15 @@ export default function AddConductModal({ cwos, onSave, onSaveCwo, onClose, init
                 </button>
               ))}
               {!ampmEnabled && form.conductKey && (
-                <span className="field-hint field-hint-inline">Full-day conduct — no AM/PM needed.</span>
+                <span className="field-hint field-hint-inline">
+                  {def?.busSession
+                    ? 'Select AM or PM for bus session timing.'
+                    : 'Full-day conduct — no AM/PM needed.'}
+                </span>
               )}
             </div>
           </section>
 
-          {/* Status */}
           <section className="form-section">
             <label className="form-label">Status</label>
             <div className="pill-row">
@@ -304,33 +440,41 @@ export default function AddConductModal({ cwos, onSave, onSaveCwo, onClose, init
             </div>
           </section>
 
-          {/* PES BMT / Non-BMT */}
-          <section className="form-section">
-            <label className="form-label">PES Type</label>
-            <div className="pill-row">
-              {['BMT', 'Non-BMT'].map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  className={`pill ${form.pes === p ? 'pill-active' : ''}`}
-                  onClick={() => set({ pes: p })}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-          </section>
+          {!def?.calendarOnly && (
+            <section className="form-section">
+              <label className="form-label">PES Type</label>
+              <div className="pill-row">
+                {['BMT', 'Non-BMT'].map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    className={`pill ${form.pes === p ? 'pill-active' : ''}`}
+                    onClick={() => set({ pes: p })}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
 
-          {/* Date(s) */}
           <section className="form-section">
-            <label className="form-label">{isMultiDay ? 'Start date' : 'Date'}</label>
+            <label className="form-label">
+              {hasFixedDays || isManualMultiDay ? 'Start date' : 'Date'}
+            </label>
             <input
               type="date"
               className="text-input date-input"
               value={form.date}
               onChange={(e) => set({ date: e.target.value })}
             />
-            {isMultiDay && (
+            {hasFixedDays && previewEndDate && (
+              <div className="field-hint" style={{ marginTop: '0.5rem' }}>
+                {def.fixedDays}-day conduct: {formatDDMMYYYY(form.date)} –{' '}
+                {formatDDMMYYYY(previewEndDate)}
+              </div>
+            )}
+            {isManualMultiDay && (
               <>
                 <label className="form-label" style={{ marginTop: '0.75rem' }}>
                   End date
@@ -344,12 +488,28 @@ export default function AddConductModal({ cwos, onSave, onSaveCwo, onClose, init
                 />
               </>
             )}
+            {previewDays.length > 1 && (
+              <div className="range-preview">
+                {previewDays.map((d, i) => (
+                  <span key={d} className="range-preview-day">
+                    {formatDDMMYYYY(d)}
+                    {def?.key === 'BTP' && (i === 0 ? ' (btp1)' : i === 1 ? ' (btp2)' : '')}
+                    {def?.key === 'IFC' && i === 4 ? ' (SIT test)' : ''}
+                  </span>
+                ))}
+              </div>
+            )}
           </section>
         </div>
 
         <div className="modal-footer">
+          {isEdit && (
+            <button className="btn btn-danger btn-block" onClick={handleDelete}>
+              Delete conduct
+            </button>
+          )}
           <button className="btn btn-block" disabled={!isValid} onClick={handleSubmit}>
-            Add conduct
+            {isEdit ? 'Save changes' : 'Add conduct'}
           </button>
         </div>
       </div>

@@ -1,3 +1,5 @@
+import { computeEndDate } from '../data/conducts.js';
+
 const KEYS = {
   conducts: 'sch2.conducts',
   cwos: 'sch2.cwos',
@@ -20,8 +22,24 @@ function save(key, value) {
   }
 }
 
+/** Migrate legacy conduct keys from earlier app versions. */
+function migrateConduct(entry) {
+  let migrated = { ...entry };
+
+  if (migrated.conductKey === 'BTP1' || migrated.conductKey === 'BTP2') {
+    migrated.conductKey = 'BTP';
+  }
+  if (migrated.conductKey === 'BPK2') {
+    migrated.conductKey = 'BPK';
+  }
+
+  migrated.endDate = computeEndDate(migrated);
+  return migrated;
+}
+
 export function loadConducts() {
-  return load(KEYS.conducts, []);
+  const raw = load(KEYS.conducts, []);
+  return raw.map(migrateConduct);
 }
 
 export function saveConducts(conducts) {

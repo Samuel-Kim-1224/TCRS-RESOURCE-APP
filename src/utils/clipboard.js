@@ -15,6 +15,10 @@ export async function copyRowsToClipboard(rows) {
   await navigator.clipboard.writeText(tsv);
 }
 
+export async function copyToClipboard(text) {
+  await navigator.clipboard.writeText(text);
+}
+
 export function downloadCSV(filename, rows) {
   const csv = rows
     .map((row) =>
