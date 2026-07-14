@@ -7,12 +7,17 @@ import {
   RM_KM_OPTIONS,
   RM_PES_OPTIONS,
   ER_NUMBER_OPTIONS,
+  TEMPO_NUMBER_OPTIONS,
+  IPPT_NUMBER_OPTIONS,
   CC_NUMBER_OPTIONS,
   SOC_PES_OPTIONS,
+  PES_TYPE_OPTIONS,
   VENUE_OPTIONS,
   BTP_RANGE_OPTIONS,
   FC_SITE_OPTIONS,
   SITTEST_SITE_OPTIONS,
+  resolveFixedDays,
+  hasSitTest,
 } from '../data/conducts.js';
 import { addDays, dateRange, formatDDMMYYYY } from '../utils/dateUtils.js';
 
@@ -22,12 +27,14 @@ const emptyForm = {
   rmKm: '',
   rmPes: '',
   erNumber: '',
+  tempoNumber: '',
+  ipptNumber: '',
   ccNumber: '',
   socPes: '',
   venue: '',
   btpRange: '',
   fcSite: '',
-  sitTestSite: 'Sittest Site 1',
+  sitTestSite: '',
   period: '',
   status: 'conducting',
   pes: '',
@@ -43,12 +50,14 @@ function entryToForm(entry) {
     rmKm: entry.rmKm || '',
     rmPes: entry.rmPes || '',
     erNumber: entry.erNumber || '',
+    tempoNumber: entry.tempoNumber || '',
+    ipptNumber: entry.ipptNumber || '',
     ccNumber: entry.ccNumber || '',
     socPes: entry.socPes || '',
     venue: entry.venue || '',
     btpRange: entry.btpRange || '',
     fcSite: entry.fcSite || '',
-    sitTestSite: entry.sitTestSite || 'Sittest Site 1',
+    sitTestSite: entry.sitTestSite || '',
     period: entry.period || '',
     status: entry.status || 'conducting',
     pes: entry.pes || '',
@@ -79,8 +88,9 @@ export default function AddConductModal({
     (AMPM_ENABLED_CATEGORIES.includes(def.category) || def.busSession);
   const hasFixedDays = !!def?.fixedDays;
   const isManualMultiDay = !!def?.multiDay && !def?.fixedDays;
+  const sitTestRequired = form.conductKey === 'IFC' && form.pes === 'Combat fit';
+  const fixedDaysCount = resolveFixedDays(form);
 
-  const cwo = cwos[form.companyCode] || { name: '', number: '' };
   const [cwoName, setCwoName] = useState(() => {
     if (editEntry) return (cwos[editEntry.companyCode] || {}).name || '';
     return '';
@@ -103,8 +113,11 @@ export default function AddConductModal({
 
   const subFieldsValid = useMemo(() => {
     if (!def?.subFields) return true;
-    return def.subFields.every((f) => !!form[f]);
-  }, [def, form]);
+    const baseOk = def.subFields.every((f) => !!form[f]);
+    if (!baseOk) return false;
+    if (sitTestRequired && !form.sitTestSite) return false;
+    return true;
+  }, [def, form, sitTestRequired]);
 
   const isValid =
     !!form.companyCode &&
@@ -118,9 +131,9 @@ export default function AddConductModal({
     (!isManualMultiDay || !!form.endDate);
 
   const previewEndDate = useMemo(() => {
-    if (!form.date || !def?.fixedDays) return null;
-    return addDays(form.date, def.fixedDays - 1);
-  }, [form.date, def]);
+    if (!form.date || !fixedDaysCount) return null;
+    return addDays(form.date, fixedDaysCount - 1);
+  }, [form.date, fixedDaysCount]);
 
   const previewDays = useMemo(() => {
     if (!form.date) return [];
@@ -141,14 +154,28 @@ export default function AddConductModal({
       rmKm: '',
       rmPes: '',
       erNumber: '',
+      tempoNumber: '',
+      ipptNumber: '',
       ccNumber: '',
       socPes: '',
       venue: '',
       btpRange: '',
       fcSite: '',
-      sitTestSite: key === 'IFC' ? 'Sittest Site 1' : '',
+      sitTestSite: '',
       endDate: '',
     });
+  };
+
+  const handleSelectPes = (p) => {
+    const patch = { pes: p };
+    if (form.conductKey === 'IFC') {
+      if (p === 'Combat fit') {
+        patch.sitTestSite = form.sitTestSite || 'Sittest Site 1';
+      } else {
+        patch.sitTestSite = '';
+      }
+    }
+    set(patch);
   };
 
   const handleSubmit = () => {
@@ -162,14 +189,16 @@ export default function AddConductModal({
       onSaveCwo(form.companyCode, { name: effectiveCwoName, number: effectiveCwoNumber });
     }
 
-    const endDate = hasFixedDays
-      ? addDays(form.date, def.fixedDays - 1)
+    const days = resolveFixedDays(form);
+    const endDate = days
+      ? addDays(form.date, days - 1)
       : isManualMultiDay
         ? form.endDate
         : form.date;
 
     onSave({
       ...form,
+      sitTestSite: hasSitTest(form) ? form.sitTestSite : '',
       endDate,
       id: editEntry?.id,
     });
@@ -243,6 +272,24 @@ export default function AddConductModal({
             </div>
           </section>
 
+          {!def?.calendarOnly && form.conductKey && (
+            <section className="form-section">
+              <label className="form-label">PES Type</label>
+              <div className="pill-row">
+                {PES_TYPE_OPTIONS.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    className={`pill ${form.pes === p ? 'pill-active' : ''}`}
+                    onClick={() => handleSelectPes(p)}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
           {form.conductKey === 'RM' && (
             <section className="form-section form-section-sub">
               <div className="sub-field">
@@ -299,8 +346,44 @@ export default function AddConductModal({
             </section>
           )}
 
+          {form.conductKey === 'TEMPO' && (
+            <section className="form-section form-section-sub">
+              <div className="sub-field">
+                <label className="form-label-sm">Tempo Number</label>
+                <div className="pill-row">
+                  {TEMPO_NUMBER_OPTIONS.map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      className={`pill pill-sm ${form.tempoNumber === v ? 'pill-active' : ''}`}
+                      onClick={() => set({ tempoNumber: v })}
+                    >
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <VenuePicker value={form.venue} onChange={(v) => set({ venue: v })} />
+            </section>
+          )}
+
           {form.conductKey === 'IPPT' && (
             <section className="form-section form-section-sub">
+              <div className="sub-field">
+                <label className="form-label-sm">IPPT Number</label>
+                <div className="pill-row">
+                  {IPPT_NUMBER_OPTIONS.map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      className={`pill pill-sm ${form.ipptNumber === v ? 'pill-active' : ''}`}
+                      onClick={() => set({ ipptNumber: v })}
+                    >
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <VenuePicker value={form.venue} onChange={(v) => set({ venue: v })} />
             </section>
           )}
@@ -382,21 +465,26 @@ export default function AddConductModal({
                   ))}
                 </div>
               </div>
-              <div className="sub-field">
-                <label className="form-label-sm">SIT Test Site</label>
-                <div className="pill-row">
-                  {SITTEST_SITE_OPTIONS.map((v) => (
-                    <button
-                      key={v}
-                      type="button"
-                      className={`pill pill-sm ${form.sitTestSite === v ? 'pill-active' : ''}`}
-                      onClick={() => set({ sitTestSite: v })}
-                    >
-                      {v}
-                    </button>
-                  ))}
+              {sitTestRequired && (
+                <div className="sub-field">
+                  <label className="form-label-sm">SIT Test Site</label>
+                  <div className="pill-row">
+                    {SITTEST_SITE_OPTIONS.map((v) => (
+                      <button
+                        key={v}
+                        type="button"
+                        className={`pill pill-sm ${form.sitTestSite === v ? 'pill-active' : ''}`}
+                        onClick={() => set({ sitTestSite: v })}
+                      >
+                        {v}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
+              {form.pes === 'B3/4' && (
+                <div className="field-hint">Lower PES — no sit test (4-day fieldcamp).</div>
+              )}
             </section>
           )}
 
@@ -440,24 +528,6 @@ export default function AddConductModal({
             </div>
           </section>
 
-          {!def?.calendarOnly && (
-            <section className="form-section">
-              <label className="form-label">PES Type</label>
-              <div className="pill-row">
-                {['BMT', 'Non-BMT'].map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    className={`pill ${form.pes === p ? 'pill-active' : ''}`}
-                    onClick={() => set({ pes: p })}
-                  >
-                    {p}
-                  </button>
-                ))}
-              </div>
-            </section>
-          )}
-
           <section className="form-section">
             <label className="form-label">
               {hasFixedDays || isManualMultiDay ? 'Start date' : 'Date'}
@@ -468,9 +538,9 @@ export default function AddConductModal({
               value={form.date}
               onChange={(e) => set({ date: e.target.value })}
             />
-            {hasFixedDays && previewEndDate && (
+            {hasFixedDays && previewEndDate && fixedDaysCount && (
               <div className="field-hint" style={{ marginTop: '0.5rem' }}>
-                {def.fixedDays}-day conduct: {formatDDMMYYYY(form.date)} –{' '}
+                {fixedDaysCount}-day conduct: {formatDDMMYYYY(form.date)} –{' '}
                 {formatDDMMYYYY(previewEndDate)}
               </div>
             )}
@@ -494,7 +564,7 @@ export default function AddConductModal({
                   <span key={d} className="range-preview-day">
                     {formatDDMMYYYY(d)}
                     {def?.key === 'BTP' && (i === 0 ? ' (btp1)' : i === 1 ? ' (btp2)' : '')}
-                    {def?.key === 'IFC' && i === 4 ? ' (SIT test)' : ''}
+                    {def?.key === 'IFC' && hasSitTest(form) && i === 4 ? ' (SIT test)' : ''}
                   </span>
                 ))}
               </div>

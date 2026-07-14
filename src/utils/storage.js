@@ -33,6 +33,9 @@ function migrateConduct(entry) {
     migrated.conductKey = 'BPK';
   }
 
+  if (migrated.pes === 'BMT') migrated.pes = 'Combat fit';
+  if (migrated.pes === 'Non-BMT') migrated.pes = 'B3/4';
+
   migrated.endDate = computeEndDate(migrated);
   return migrated;
 }

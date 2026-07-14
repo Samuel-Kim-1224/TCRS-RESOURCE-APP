@@ -63,6 +63,17 @@ export function dayOfMonth(iso) {
   return String(parseInt(iso.split('-')[2], 10));
 }
 
+/** Number of days in a monthKey 'yyyy-mm' (28–31). */
+export function daysInMonth(monthKey) {
+  const [y, m] = monthKey.split('-').map(Number);
+  return new Date(y, m, 0).getDate();
+}
+
+/** ISO date for day-of-month within monthKey. */
+export function isoForMonthDay(monthKey, day) {
+  return `${monthKey}-${String(day).padStart(2, '0')}`;
+}
+
 export const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',

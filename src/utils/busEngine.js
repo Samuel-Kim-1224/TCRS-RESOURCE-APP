@@ -1,5 +1,5 @@
-import { conductDef } from '../data/conducts.js';
-import { dateRange, addDays } from './dateUtils.js';
+import { conductDef, hasSitTest } from '../data/conducts.js';
+import { dateRange } from './dateUtils.js';
 import {
   MTL,
   HG_RANGE,
@@ -69,14 +69,21 @@ function ifcTrips(entry) {
   if (days[0]) {
     trips.push(...twoBusTrips(days[0], '09:00', entry.companyCode, 'FC NMT', MTL, fcSite));
   }
-  if (days[3]) {
-    trips.push(
-      ...twoBusTrips(days[3], '15:00', entry.companyCode, 'FC SITTEST TRANSITION', fcSite, sitSite),
-    );
+
+  if (hasSitTest(entry)) {
+    if (days[3]) {
+      trips.push(
+        ...twoBusTrips(days[3], '15:00', entry.companyCode, 'FC SITTEST TRANSITION', fcSite, sitSite),
+      );
+    }
+    if (days[4]) {
+      trips.push(...twoBusTrips(days[4], '16:00', entry.companyCode, 'FC RTU', sitSite, MTL));
+    }
+  } else if (days[3]) {
+    // B3/4: no sit test — RTU from FC site on last FC day
+    trips.push(...twoBusTrips(days[3], '16:00', entry.companyCode, 'FC RTU', fcSite, MTL));
   }
-  if (days[4]) {
-    trips.push(...twoBusTrips(days[4], '16:00', entry.companyCode, 'FC RTU', sitSite, MTL));
-  }
+
   return trips;
 }
 

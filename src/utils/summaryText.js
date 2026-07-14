@@ -1,5 +1,5 @@
 import { COMPANIES } from '../data/companies.js';
-import { conductDef, conductDisplayName } from '../data/conducts.js';
+import { conductDef, conductDisplayName, isCombatFit } from '../data/conducts.js';
 import { generateIndents } from './rulesEngine.js';
 import { generateBusTrips } from './busEngine.js';
 import { formatDDMMYY, dateRange, formatDayLabel } from './dateUtils.js';
@@ -31,7 +31,7 @@ function medicVehicleLine(entry, vehicleRows, medicRows) {
   const medic = medicRows.find((r) => r.start);
   if (!medic) return null;
   const hasSouv = vehicleRows.some((r) => r.vehicleType === 'SOUV' || r.vehicleType === 'F550');
-  const vehicle = hasSouv ? (entry.pes === 'BMT' ? 'SOUV' : 'F550') : 'Medic';
+  const vehicle = hasSouv ? (isCombatFit(entry) ? 'SOUV' : 'F550') : 'Medic';
   const time = medic.start.replace(':', '');
   if (hasSouv) return `• Medic, ${vehicle} ${time}`;
   return `• Medic ${time}`;
@@ -40,7 +40,9 @@ function medicVehicleLine(entry, vehicleRows, medicRows) {
 function preparkLine(vehicleRows) {
   const prep = vehicleRows.find((r) => r.prepark && r.vehicleType === '5 TON GS');
   if (!prep) return null;
-  return `• 5 TON GS (Prepark: ${formatDDMMYY(prep.startDate)}, ${prep.startTime.replace(':', '')})`;
+  const start = prep.startTime.replace(':', '');
+  const end = (prep.endTime || '16:00').replace(':', '');
+  return `• 5 TON GS (Prepark: ${formatDDMMYY(prep.startDate)}, ${start}-${end})`;
 }
 
 function luvLine(entry, vehicleRows) {
@@ -49,12 +51,12 @@ function luvLine(entry, vehicleRows) {
   if (!draws.length) return null;
   const drawTime = draws[0].startTime.replace(':', '');
   const returnTime = (returns[returns.length - 1]?.endTime || returns[returns.length - 1]?.startTime || '2200').replace(':', '');
+  if (entry.conductKey === 'IFC') {
+    return `• LUV (Ammo) for DRAW ${drawTime}, RETURN ${returnTime} FIRST and LAST FC day.`;
+  }
   const days = dateRange(entry.date, entry.endDate || entry.date);
   if (days.length > 1) {
     return `• LUV (Ammo) for DRAW ${drawTime}, RETURN ${returnTime} both Day1,${days.length}`;
-  }
-  if (entry.conductKey === 'IFC') {
-    return `• LUV (Ammo) for DRAW ${drawTime}, RETURN ${returnTime} FIRST and LAST day.`;
   }
   return `• LUV (Ammo) for DRAW ${drawTime}, RETURN ${returnTime}`;
 }

@@ -1,12 +1,11 @@
 import { generateIndents } from './rulesEngine.js';
 import { generateBusTrips } from './busEngine.js';
 import { companyName } from '../data/companies.js';
-import { formatDDMMYYYY, dayOfMonth } from './dateUtils.js';
-import { conductDisplayName } from '../data/conducts.js';
+import { formatDDMMYYYY, dayOfMonth, daysInMonth, isoForMonthDay } from './dateUtils.js';
 
 export const VEHICLE_HEADERS = [
   'Serial / Name', 'Vehicle', 'Qty', 'Qty', 'Date Starting', 'Time Starting',
-  'Date Ending', 'Company (1)', 'Company (2)', 'CWO Name', 'CWO Number',
+  'Date Ending', 'Time Ending', 'Company (1)', 'Company (2)', 'CWO Name', 'CWO Number',
   'Unit', 'Remarks',
 ];
 
@@ -36,6 +35,7 @@ export function vehicleRowsForEntry(entry, cwos) {
         formatDDMMYYYY(r.startDate),
         r.startTime,
         formatDDMMYYYY(r.endDate),
+        r.endTime || '',
         coyName,
         coyName,
         cwo.name,
@@ -107,13 +107,15 @@ function sortVehicleRows(a, b) {
 
 /** Filters + flattens + sorts rows for all conducts overlapping monthKey ('yyyy-mm'). */
 export function buildMonthRows(conducts, cwos, monthKey, kind) {
+  if (kind === 'medic') {
+    return buildMedicMonthRows(conducts, monthKey);
+  }
+
   const inMonth = conducts.filter((c) => conductOverlapsMonth(c, monthKey));
   const builder =
     kind === 'vehicle'
       ? (c) => vehicleRowsForEntry(c, cwos)
-      : kind === 'bus'
-        ? (c) => busRowsForEntry(c)
-        : (c) => medicRowsForEntry(c);
+      : (c) => busRowsForEntry(c);
   const rows = inMonth.flatMap((conduct, entryOrder) =>
     builder(conduct).map((row) => ({ ...row, entryOrder })),
   );
@@ -129,4 +131,51 @@ export function buildMonthRows(conducts, cwos, monthKey, kind) {
     });
   }
   return rows;
+}
+
+/**
+ * Medic sheet: one (or more) rows for every calendar day in the month.
+ * Days with no conducts get a blank placeholder row; days with multiple
+ * medic/conduct lines get multiple rows under the same date number.
+ */
+export function buildMedicMonthRows(conducts, monthKey) {
+  const inMonth = conducts.filter((c) => conductOverlapsMonth(c, monthKey));
+  const populated = inMonth.flatMap((conduct, entryOrder) =>
+    medicRowsForEntry(conduct)
+      .filter((row) => row.sortDate.slice(0, 7) === monthKey)
+      .map((row) => ({ ...row, entryOrder })),
+  );
+
+  populated.sort((a, b) => {
+    if (a.sortDate !== b.sortDate) return a.sortDate < b.sortDate ? -1 : 1;
+    const aStart = a.cells[3] || '';
+    const bStart = b.cells[3] || '';
+    if (aStart !== bStart) return aStart < bStart ? -1 : 1;
+    return (a.entryOrder || 0) - (b.entryOrder || 0);
+  });
+
+  const byDay = new Map();
+  for (const row of populated) {
+    const day = Number(dayOfMonth(row.sortDate));
+    (byDay.get(day) || byDay.set(day, []).get(day)).push(row);
+  }
+
+  const totalDays = daysInMonth(monthKey);
+  const out = [];
+  for (let day = 1; day <= totalDays; day++) {
+    const dayRows = byDay.get(day);
+    if (dayRows?.length) {
+      out.push(...dayRows);
+    } else {
+      out.push({
+        cells: [String(day), '', '', '', '', ''],
+        sortDate: isoForMonthDay(monthKey, day),
+        entryId: null,
+        conductStartDate: isoForMonthDay(monthKey, day),
+        entryOrder: -1,
+        emptyDay: true,
+      });
+    }
+  }
+  return out;
 }
