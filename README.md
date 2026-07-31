@@ -22,14 +22,33 @@ vehicle, medic, bus/troop-lift, and indent summary outputs that go with them.
 - **Indent Summary tab** — per-company CWO update text blocks with copy buttons
   (AMMO placeholders left empty per spec).
 - **re-IFC** and **re-SIT test** — calendar-only conducts (no sheet rows).
-- All data persists in `localStorage`.
+- Conducts and CWO details persist in Supabase and are shared by authenticated users.
+- Existing browser `localStorage` data is imported automatically when the shared database is empty.
 
 ## Getting it running
 
 ```bash
 npm install
+cp .env.example .env
 npm run dev
 ```
+
+Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in `.env` before starting
+the app.
+
+## Supabase setup
+
+1. Create a Supabase project.
+2. Run `supabase/migrations/20260731080936_create_scheduler_schema.sql` in the
+   Supabase SQL Editor, or apply it with the Supabase CLI.
+3. Enable Email authentication and create the authorized user accounts.
+4. Set the Auth Site URL and redirect URL to
+   `https://samuel-kim-1224.github.io/TCRS-RESOURCE-APP/`.
+5. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as GitHub Actions
+   repository secrets.
+
+The browser must only receive the Supabase publishable/anon key. Never use a
+secret or `service_role` key in a `VITE_` environment variable.
 
 ## Project layout
 
@@ -46,7 +65,10 @@ src/
     buildRows.js     spreadsheet row builders
     summaryText.js   per-company CWO indent summary text
     clipboard.js     copy-to-clipboard / CSV export
-    storage.js       localStorage + legacy conduct migration
+    storage.js       legacy localStorage import
+  lib/
+    supabase.js       Supabase browser client
+    database.js       conduct and CWO database operations
   components/
     AddConductModal.jsx
     CalendarTab.jsx, VehicleTab.jsx, MedicTab.jsx, BusTab.jsx, IndentSummaryTab.jsx

@@ -76,6 +76,8 @@ export default function AddConductModal({
   editEntry,
 }) {
   const isEdit = !!editEntry;
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const [form, setForm] = useState(() => {
     if (editEntry) return entryToForm(editEntry);
     return initialDate ? { ...emptyForm, date: initialDate } : emptyForm;
@@ -178,35 +180,53 @@ export default function AddConductModal({
     set(patch);
   };
 
-  const handleSubmit = () => {
-    if (!isValid) return;
-    const savedCwo = cwos[form.companyCode];
-    if (
-      !savedCwo ||
-      savedCwo.name !== effectiveCwoName ||
-      savedCwo.number !== effectiveCwoNumber
-    ) {
-      onSaveCwo(form.companyCode, { name: effectiveCwoName, number: effectiveCwoNumber });
+  const handleSubmit = async () => {
+    if (!isValid || submitting) return;
+    setSubmitting(true);
+    setSubmitError('');
+
+    try {
+      const savedCwo = cwos[form.companyCode];
+      if (
+        !savedCwo ||
+        savedCwo.name !== effectiveCwoName ||
+        savedCwo.number !== effectiveCwoNumber
+      ) {
+        await onSaveCwo(form.companyCode, {
+          name: effectiveCwoName,
+          number: effectiveCwoNumber,
+        });
+      }
+
+      const days = resolveFixedDays(form);
+      const endDate = days
+        ? addDays(form.date, days - 1)
+        : isManualMultiDay
+          ? form.endDate
+          : form.date;
+
+      await onSave({
+        ...form,
+        sitTestSite: hasSitTest(form) ? form.sitTestSite : '',
+        endDate,
+        id: editEntry?.id,
+      });
+    } catch (error) {
+      setSubmitError(error.message);
+      setSubmitting(false);
     }
-
-    const days = resolveFixedDays(form);
-    const endDate = days
-      ? addDays(form.date, days - 1)
-      : isManualMultiDay
-        ? form.endDate
-        : form.date;
-
-    onSave({
-      ...form,
-      sitTestSite: hasSitTest(form) ? form.sitTestSite : '',
-      endDate,
-      id: editEntry?.id,
-    });
   };
 
-  const handleDelete = () => {
-    if (editEntry && onDelete) {
-      onDelete(editEntry.id);
+  const handleDelete = async () => {
+    if (!editEntry || !onDelete || submitting) return;
+    setSubmitting(true);
+    setSubmitError('');
+
+    try {
+      await onDelete(editEntry.id);
+    } catch (error) {
+      setSubmitError(error.message);
+      setSubmitting(false);
     }
   };
 
@@ -573,13 +593,18 @@ export default function AddConductModal({
         </div>
 
         <div className="modal-footer">
+          {submitError && <div className="status-message status-error">{submitError}</div>}
           {isEdit && (
-            <button className="btn btn-danger btn-block" onClick={handleDelete}>
-              Delete conduct
+            <button
+              className="btn btn-danger btn-block"
+              disabled={submitting}
+              onClick={handleDelete}
+            >
+              {submitting ? 'Please wait…' : 'Delete conduct'}
             </button>
           )}
-          <button className="btn btn-block" disabled={!isValid} onClick={handleSubmit}>
-            {isEdit ? 'Save changes' : 'Add conduct'}
+          <button className="btn btn-block" disabled={!isValid || submitting} onClick={handleSubmit}>
+            {submitting ? 'Saving…' : isEdit ? 'Save changes' : 'Add conduct'}
           </button>
         </div>
       </div>
