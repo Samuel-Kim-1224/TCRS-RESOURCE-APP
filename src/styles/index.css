@@ -175,6 +175,36 @@ button {
   gap: 0.65rem;
 }
 
+.auth-school-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+  margin-bottom: 0.35rem;
+}
+
+.auth-school-btn {
+  min-height: 3.4rem;
+  border: 2px solid var(--school-color, var(--line));
+  border-radius: 4px;
+  background: var(--panel-raised);
+  color: var(--school-color, var(--text));
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.auth-school-btn:hover {
+  background: color-mix(in srgb, var(--school-color) 12%, var(--panel-raised));
+}
+
+.auth-school-btn-active {
+  background: var(--school-color, var(--amber));
+  border-color: var(--school-color, var(--amber));
+  color: #fff;
+}
+
 .auth-mode-button {
   display: block;
   margin: 1rem auto 0;

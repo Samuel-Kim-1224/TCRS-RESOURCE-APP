@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase.js';
-import { accountByUsername, SCHOOL_ACCOUNTS } from '../data/schools.js';
+import { SCHOOL_ACCOUNTS } from '../data/schools.js';
+import { schoolColor } from '../data/companies.js';
 
 export default function AuthScreen() {
   const [username, setUsername] = useState('');
@@ -13,9 +14,9 @@ export default function AuthScreen() {
     setSubmitting(true);
     setError('');
 
-    const account = accountByUsername(username);
+    const account = SCHOOL_ACCOUNTS.find((a) => a.username === username);
     if (!account) {
-      setError(`Use one of: ${SCHOOL_ACCOUNTS.map((a) => a.username).join(', ')}`);
+      setError('Select SCH1, SCH2, SCH3, or SCH4.');
       setSubmitting(false);
       return;
     }
@@ -38,23 +39,29 @@ export default function AuthScreen() {
         <div className="auth-heading">
           <span className="app-title-mark">TCRS</span>
           <h1>Conduct &amp; Indent Scheduler</h1>
-          <p>Sign in with your school account (SCH1–SCH4).</p>
+          <p>Select your school, then enter the password.</p>
         </div>
 
         <form className="auth-form" onSubmit={handleSubmit}>
-          <label className="form-label" htmlFor="auth-username">
-            School account
-          </label>
-          <input
-            id="auth-username"
-            className="text-input"
-            type="text"
-            autoComplete="username"
-            placeholder="SCH1"
-            required
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-          />
+          <label className="form-label">School account</label>
+          <div className="auth-school-grid" role="group" aria-label="School account">
+            {SCHOOL_ACCOUNTS.map((account) => {
+              const active = username === account.username;
+              const color = schoolColor(account.school);
+              return (
+                <button
+                  key={account.username}
+                  type="button"
+                  className={`auth-school-btn ${active ? 'auth-school-btn-active' : ''}`}
+                  style={{ '--school-color': color }}
+                  aria-pressed={active}
+                  onClick={() => setUsername(account.username)}
+                >
+                  {account.username}
+                </button>
+              );
+            })}
+          </div>
 
           <label className="form-label" htmlFor="auth-password">
             Password
@@ -72,7 +79,11 @@ export default function AuthScreen() {
 
           {error && <div className="status-message status-error">{error}</div>}
 
-          <button className="btn btn-primary btn-block" type="submit" disabled={submitting}>
+          <button
+            className="btn btn-primary btn-block"
+            type="submit"
+            disabled={submitting || !username}
+          >
             {submitting ? 'Please wait…' : 'Sign in'}
           </button>
         </form>
