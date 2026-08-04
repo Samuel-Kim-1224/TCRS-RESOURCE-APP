@@ -1,63 +1,59 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase.js';
+import { accountByUsername, SCHOOL_ACCOUNTS } from '../data/schools.js';
 
 export default function AuthScreen() {
-  const [mode, setMode] = useState('sign-in');
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-
-  const isSignUp = mode === 'sign-up';
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setSubmitting(true);
     setError('');
-    setMessage('');
 
-    const credentials = { email: email.trim(), password };
-    const { data, error: authError } = isSignUp
-      ? await supabase.auth.signUp(credentials)
-      : await supabase.auth.signInWithPassword(credentials);
+    const account = accountByUsername(username);
+    if (!account) {
+      setError(`Use one of: ${SCHOOL_ACCOUNTS.map((a) => a.username).join(', ')}`);
+      setSubmitting(false);
+      return;
+    }
+
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email: account.email,
+      password,
+    });
 
     if (authError) {
       setError(authError.message);
-    } else if (isSignUp && !data.session) {
-      setMessage('Check your email to confirm your account, then sign in.');
     }
 
     setSubmitting(false);
-  };
-
-  const switchMode = () => {
-    setMode((current) => (current === 'sign-in' ? 'sign-up' : 'sign-in'));
-    setError('');
-    setMessage('');
   };
 
   return (
     <main className="auth-shell">
       <section className="auth-card">
         <div className="auth-heading">
-          <span className="app-title-mark">SCH2</span>
+          <span className="app-title-mark">TCRS</span>
           <h1>Conduct &amp; Indent Scheduler</h1>
-          <p>{isSignUp ? 'Create an authorized account.' : 'Sign in to access the shared schedule.'}</p>
+          <p>Sign in with your school account (SCH1–SCH4).</p>
         </div>
 
         <form className="auth-form" onSubmit={handleSubmit}>
-          <label className="form-label" htmlFor="auth-email">
-            Email
+          <label className="form-label" htmlFor="auth-username">
+            School account
           </label>
           <input
-            id="auth-email"
+            id="auth-username"
             className="text-input"
-            type="email"
-            autoComplete="email"
+            type="text"
+            autoComplete="username"
+            placeholder="SCH1"
             required
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
           />
 
           <label className="form-label" htmlFor="auth-password">
@@ -67,7 +63,7 @@ export default function AuthScreen() {
             id="auth-password"
             className="text-input"
             type="password"
-            autoComplete={isSignUp ? 'new-password' : 'current-password'}
+            autoComplete="current-password"
             minLength={6}
             required
             value={password}
@@ -75,16 +71,11 @@ export default function AuthScreen() {
           />
 
           {error && <div className="status-message status-error">{error}</div>}
-          {message && <div className="status-message status-success">{message}</div>}
 
           <button className="btn btn-primary btn-block" type="submit" disabled={submitting}>
-            {submitting ? 'Please wait…' : isSignUp ? 'Create account' : 'Sign in'}
+            {submitting ? 'Please wait…' : 'Sign in'}
           </button>
         </form>
-
-        <button className="auth-mode-button" type="button" onClick={switchMode}>
-          {isSignUp ? 'Already have an account? Sign in' : 'Need an account? Sign up'}
-        </button>
       </section>
     </main>
   );

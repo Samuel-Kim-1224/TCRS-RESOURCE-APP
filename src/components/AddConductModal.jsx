@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { COMPANIES } from '../data/companies.js';
+import { companiesForSchool, companyColor } from '../data/companies.js';
 import {
   CONDUCTS,
   conductDef,
@@ -68,6 +68,7 @@ function entryToForm(entry) {
 
 export default function AddConductModal({
   cwos,
+  homeSchool,
   onSave,
   onSaveCwo,
   onDelete,
@@ -207,6 +208,7 @@ export default function AddConductModal({
 
       await onSave({
         ...form,
+        school: homeSchool,
         sitTestSite: hasSitTest(form) ? form.sitTestSite : '',
         endDate,
         id: editEntry?.id,
@@ -244,16 +246,26 @@ export default function AddConductModal({
           <section className="form-section">
             <label className="form-label">Company</label>
             <div className="pill-row">
-              {COMPANIES.map((c) => (
-                <button
-                  key={c.code}
-                  type="button"
-                  className={`pill ${form.companyCode === c.code ? 'pill-active' : ''}`}
-                  onClick={() => handleSelectCompany(c.code)}
-                >
-                  {c.code}
-                </button>
-              ))}
+              {companiesForSchool(homeSchool).map((c) => {
+                const active = form.companyCode === c.code;
+                const color = companyColor(c.code);
+                return (
+                  <button
+                    key={c.code}
+                    type="button"
+                    className={`pill pill-school ${active ? 'pill-active' : ''}`}
+                    style={{
+                      '--school-color': color,
+                      ...(active
+                        ? { background: color, borderColor: color, color: '#fff' }
+                        : { borderColor: color, color }),
+                    }}
+                    onClick={() => handleSelectCompany(c.code)}
+                  >
+                    {c.code}
+                  </button>
+                );
+              })}
             </div>
             {form.companyCode && (
               <div className="cwo-box">

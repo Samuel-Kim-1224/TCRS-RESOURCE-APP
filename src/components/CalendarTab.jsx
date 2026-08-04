@@ -1,6 +1,11 @@
 import { dateRange, toISO } from '../utils/dateUtils.js';
-import { conductDisplayName, conductLocation } from '../data/conducts.js';
-import { companyColor } from '../data/companies.js';
+import { conductDisplayName, conductLocation, conductTypeColor } from '../data/conducts.js';
+import {
+  companyColor,
+  companyColorLight,
+  companySchool,
+  schoolColorLight,
+} from '../data/companies.js';
 
 function buildGrid(monthKey) {
   const [y, m] = monthKey.split('-').map(Number);
@@ -17,7 +22,63 @@ function buildGrid(monthKey) {
   return cells;
 }
 
-export default function CalendarTab({ monthKey, conducts, onDayClick, onConductClick }) {
+function chipStyleForConduct(c, homeSchool) {
+  const school = companySchool(c.companyCode) || c.school;
+  const isHome = school === homeSchool;
+
+  if (isHome) {
+    const coy = companyColor(c.companyCode);
+    const fill = conductTypeColor(c.conductKey);
+    return {
+      borderLeftColor: coy,
+      background: fill,
+      '--chip-coy-color': coy,
+      coyColor: coy,
+    };
+  }
+
+  const wash = schoolColorLight(school);
+  return {
+    borderLeftColor: wash,
+    background: wash,
+    '--chip-coy-color': wash,
+    coyColor: wash,
+  };
+}
+
+function chipStyleForNote(note, homeSchool) {
+  const school = companySchool(note.companyCode) || note.school;
+  const isHome = school === homeSchool;
+
+  if (isHome) {
+    const coy = companyColor(note.companyCode);
+    const fill = companyColorLight(note.companyCode);
+    return {
+      borderLeftColor: coy,
+      background: fill,
+      '--chip-coy-color': coy,
+      coyColor: coy,
+    };
+  }
+
+  const wash = schoolColorLight(school);
+  return {
+    borderLeftColor: wash,
+    background: wash,
+    '--chip-coy-color': wash,
+    coyColor: wash,
+  };
+}
+
+export default function CalendarTab({
+  monthKey,
+  conducts,
+  notes = [],
+  homeSchool,
+  onDayClick,
+  onConductClick,
+  onNoteClick,
+}) {
   const cells = buildGrid(monthKey);
 
   const byDate = {};
@@ -25,7 +86,14 @@ export default function CalendarTab({ monthKey, conducts, onDayClick, onConductC
     const end = c.endDate || c.date;
     for (const day of dateRange(c.date, end)) {
       if (day.slice(0, 7) !== monthKey) continue;
-      (byDate[day] ||= []).push({ conduct: c, day });
+      (byDate[day] ||= []).push({ kind: 'conduct', item: c, day });
+    }
+  }
+  for (const n of notes) {
+    const end = n.endDate || n.date;
+    for (const day of dateRange(n.date, end)) {
+      if (day.slice(0, 7) !== monthKey) continue;
+      (byDate[day] ||= []).push({ kind: 'note', item: n, day });
     }
   }
 
@@ -49,21 +117,52 @@ export default function CalendarTab({ monthKey, conducts, onDayClick, onConductC
               <>
                 <div className="calendar-date">{parseInt(iso.slice(8), 10)}</div>
                 <div className="calendar-entries">
-                  {(byDate[iso] || []).map(({ conduct: c, day }) => {
+                  {(byDate[iso] || []).map(({ kind, item, day }) => {
+                    if (kind === 'note') {
+                      const style = chipStyleForNote(item, homeSchool);
+                      return (
+                        <div
+                          key={`note-${item.id}-${day}`}
+                          className="calendar-chip calendar-chip-note"
+                          style={{
+                            borderLeftColor: style.borderLeftColor,
+                            background: style.background,
+                            '--chip-coy-color': style['--chip-coy-color'],
+                          }}
+                          data-coy={item.companyCode}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onNoteClick && onNoteClick(item);
+                          }}
+                        >
+                          <span className="chip-coy" style={{ color: style.coyColor }}>
+                            {item.companyCode}
+                          </span>
+                          <span className="chip-name">NOTE</span>
+                          <span className="chip-location">{item.body}</span>
+                        </div>
+                      );
+                    }
+
+                    const c = item;
                     const loc = conductLocation(c, day);
-                    const color = companyColor(c.companyCode);
+                    const style = chipStyleForConduct(c, homeSchool);
                     return (
                       <div
                         key={`${c.id}-${day}`}
                         className={`calendar-chip ${c.status === 'not conducting' ? 'chip-cancelled' : ''}`}
-                        style={{ borderLeftColor: color, '--chip-coy-color': color }}
+                        style={{
+                          borderLeftColor: style.borderLeftColor,
+                          background: style.background,
+                          '--chip-coy-color': style['--chip-coy-color'],
+                        }}
                         data-coy={c.companyCode}
                         onClick={(e) => {
                           e.stopPropagation();
                           onConductClick && onConductClick(c);
                         }}
                       >
-                        <span className="chip-coy" style={{ color }}>
+                        <span className="chip-coy" style={{ color: style.coyColor }}>
                           {c.companyCode}
                         </span>
                         <span className="chip-name">{conductDisplayName(c, day)}</span>

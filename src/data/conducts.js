@@ -83,6 +83,29 @@ export const CONDUCTS = [
 
 export const conductDef = (key) => CONDUCTS.find((c) => c.key === key);
 
+/** Soft fill colours for home-school calendar chips (by conduct type). */
+export const CONDUCT_TYPE_COLORS = {
+  SOC: '#fde68a',
+  RM: '#fed7aa',
+  ER: '#bbf7d0',
+  TEMPO: '#a7f3d0',
+  CC: '#c7d2fe',
+  BTP: '#fbcfe8',
+  DAC: '#ddd6fe',
+  WP: '#e9d5ff',
+  BPK: '#f5d0fe',
+  IPPT: '#bae6fd',
+  BIC: '#99f6e4',
+  ISAD: '#a5f3fc',
+  HG: '#fecdd3',
+  IFC: '#fdba74',
+  RE_IFC: '#fcd34d',
+  RE_SIT: '#f9a8d4',
+  RE_IPPT: '#93c5fd',
+};
+
+export const conductTypeColor = (key) => CONDUCT_TYPE_COLORS[key] ?? '#e5e7eb';
+
 export const RM_KM_OPTIONS = ['2', '3-4', '6', '8', '12+'];
 export const RM_PES_OPTIONS = ['BP', 'BMT/PTP', 'B3', 'B4'];
 export const ER_NUMBER_OPTIONS = ['5', '6', '7', '8'];

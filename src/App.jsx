@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import MonthNav from './components/MonthNav.jsx';
 import CalendarTab from './components/CalendarTab.jsx';
 import VehicleTab from './components/VehicleTab.jsx';
@@ -6,19 +6,25 @@ import MedicTab from './components/MedicTab.jsx';
 import BusTab from './components/BusTab.jsx';
 import IndentSummaryTab from './components/IndentSummaryTab.jsx';
 import AddConductModal from './components/AddConductModal.jsx';
+import AddNoteModal from './components/AddNoteModal.jsx';
 import AuthScreen from './components/AuthScreen.jsx';
 import { supabase } from './lib/supabase.js';
 import {
   createConduct,
+  createNote,
   deleteConduct,
+  deleteNote,
   importLocalSchedulerData,
   loadSchedulerData,
   updateConduct,
+  updateNote,
   upsertCwo,
 } from './lib/database.js';
 import { loadConducts, loadCwos } from './utils/storage.js';
 import { toISO } from './utils/dateUtils.js';
 import { applyTheme, getStoredTheme, saveTheme } from './utils/theme.js';
+import { SCHOOLS, companySchool } from './data/companies.js';
+import { schoolFromSession, usernameFromSession } from './data/schools.js';
 
 const TABS = [
   { key: 'calendar', label: 'Calendar' },
@@ -40,14 +46,54 @@ export default function App() {
   const [dataError, setDataError] = useState('');
   const [notice, setNotice] = useState('');
   const [conducts, setConducts] = useState([]);
+  const [notes, setNotes] = useState([]);
   const [cwos, setCwos] = useState({});
   const [monthKey, setMonthKey] = useState(currentMonthKey());
   const [activeTab, setActiveTab] = useState('calendar');
   const [modalOpen, setModalOpen] = useState(false);
+  const [noteModalOpen, setNoteModalOpen] = useState(false);
   const [prefillDate, setPrefillDate] = useState(null);
   const [editEntry, setEditEntry] = useState(null);
+  const [editNote, setEditNote] = useState(null);
   const [theme, setTheme] = useState(() => getStoredTheme());
+  const [activeSchools, setActiveSchools] = useState(() =>
+    Object.fromEntries(SCHOOLS.map((s) => [s.id, true]))
+  );
   const migrationAttemptedForUser = useRef(null);
+
+  const homeSchool = schoolFromSession(session);
+  const accountLabel = usernameFromSession(session);
+
+  const filteredConducts = useMemo(
+    () =>
+      conducts.filter((c) => {
+        const school = companySchool(c.companyCode) || c.school;
+        if (!school) return true;
+        return !!activeSchools[school];
+      }),
+    [conducts, activeSchools]
+  );
+
+  const filteredNotes = useMemo(
+    () =>
+      notes.filter((n) => {
+        const school = companySchool(n.companyCode) || n.school;
+        if (!school) return true;
+        return !!activeSchools[school];
+      }),
+    [notes, activeSchools]
+  );
+
+  const toggleSchool = (schoolId) => {
+    setActiveSchools((prev) => {
+      const currentlyOn = !!prev[schoolId];
+      if (currentlyOn) {
+        const othersOn = SCHOOLS.some((s) => s.id !== schoolId && prev[s.id]);
+        if (!othersOn) return prev;
+      }
+      return { ...prev, [schoolId]: !currentlyOn };
+    });
+  };
 
   useEffect(() => {
     applyTheme(theme);
@@ -80,6 +126,7 @@ export default function App() {
   useEffect(() => {
     if (!session) {
       setConducts([]);
+      setNotes([]);
       setCwos({});
       setDataLoading(false);
       return undefined;
@@ -113,6 +160,7 @@ export default function App() {
 
         if (active) {
           setConducts(remoteData.conducts);
+          setNotes(remoteData.notes);
           setCwos(remoteData.cwos);
         }
       } catch (error) {
@@ -138,6 +186,12 @@ export default function App() {
     setEditEntry(null);
   };
 
+  const closeNoteModal = () => {
+    setNoteModalOpen(false);
+    setPrefillDate(null);
+    setEditNote(null);
+  };
+
   const handleSaveConduct = async (entry) => {
     const savedConduct = entry.id
       ? await updateConduct(entry)
@@ -159,9 +213,26 @@ export default function App() {
     closeModal();
   };
 
+  const handleSaveNote = async (entry) => {
+    const savedNote = entry.id ? await updateNote(entry) : await createNote(entry);
+
+    if (entry.id) {
+      setNotes((previous) => previous.map((note) => (note.id === entry.id ? savedNote : note)));
+    } else {
+      setNotes((previous) => [...previous, savedNote]);
+    }
+    closeNoteModal();
+  };
+
+  const handleDeleteNote = async (id) => {
+    await deleteNote(id);
+    setNotes((previous) => previous.filter((note) => note.id !== id));
+    closeNoteModal();
+  };
+
   const handleSaveCwo = async (companyCode, cwo) => {
-    await upsertCwo(companyCode, cwo);
-    setCwos((previous) => ({ ...previous, [companyCode]: cwo }));
+    await upsertCwo(companyCode, { ...cwo, school: homeSchool });
+    setCwos((previous) => ({ ...previous, [companyCode]: { ...cwo, school: homeSchool } }));
   };
 
   const openAddModal = (dateIso) => {
@@ -171,9 +242,31 @@ export default function App() {
   };
 
   const openEditModal = (entry) => {
+    const school = companySchool(entry.companyCode) || entry.school;
+    if (school && homeSchool && school !== homeSchool) {
+      setDataError('Other school conducts are view-only. Sign in to that school to edit.');
+      return;
+    }
     setEditEntry(entry);
     setPrefillDate(null);
     setModalOpen(true);
+  };
+
+  const openAddNoteModal = (dateIso) => {
+    setEditNote(null);
+    setPrefillDate(dateIso || null);
+    setNoteModalOpen(true);
+  };
+
+  const openEditNoteModal = (entry) => {
+    const school = companySchool(entry.companyCode) || entry.school;
+    if (school && homeSchool && school !== homeSchool) {
+      setDataError('Other school notes are view-only. Sign in to that school to edit.');
+      return;
+    }
+    setEditNote(entry);
+    setPrefillDate(null);
+    setNoteModalOpen(true);
   };
 
   const handleSignOut = async () => {
@@ -193,11 +286,11 @@ export default function App() {
     <div className="app-shell">
       <header className="app-header">
         <div className="app-title">
-          <span className="app-title-mark">SCH2</span>
+          <span className="app-title-mark">{accountLabel || 'TCRS'}</span>
           <span className="app-title-sub">Conduct &amp; Indent Scheduler</span>
         </div>
         <div className="app-header-actions">
-          <span className="user-email">{session.user.email}</span>
+          <span className="user-email">{accountLabel}</span>
           <button
             className="btn"
             onClick={toggleTheme}
@@ -207,6 +300,9 @@ export default function App() {
           </button>
           <button className="btn btn-primary" onClick={() => openAddModal()}>
             + Add Conduct
+          </button>
+          <button className="btn" onClick={() => openAddNoteModal()}>
+            + Add Note
           </button>
           <button className="btn" onClick={handleSignOut}>
             Sign out
@@ -238,6 +334,25 @@ export default function App() {
 
       <div className="tab-toolbar">
         <MonthNav monthKey={monthKey} onChange={setMonthKey} />
+        <div className="school-filter" role="group" aria-label="Filter by school">
+          {SCHOOLS.map((school) => {
+            const on = !!activeSchools[school.id];
+            const isHome = school.id === homeSchool;
+            return (
+              <button
+                key={school.id}
+                type="button"
+                className={`school-filter-btn ${on ? 'school-filter-btn-active' : ''} ${isHome ? 'school-filter-btn-home' : ''}`}
+                style={{ '--school-color': school.color }}
+                aria-pressed={on}
+                onClick={() => toggleSchool(school.id)}
+              >
+                {school.label}
+                {isHome ? ' · you' : ''}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <main className="tab-content">
@@ -247,18 +362,23 @@ export default function App() {
             {activeTab === 'calendar' && (
               <CalendarTab
                 monthKey={monthKey}
-                conducts={conducts}
+                conducts={filteredConducts}
+                notes={filteredNotes}
+                homeSchool={homeSchool}
                 onDayClick={openAddModal}
                 onConductClick={openEditModal}
+                onNoteClick={openEditNoteModal}
               />
             )}
             {activeTab === 'vehicle' && (
-              <VehicleTab conducts={conducts} cwos={cwos} monthKey={monthKey} />
+              <VehicleTab conducts={filteredConducts} cwos={cwos} monthKey={monthKey} />
             )}
-            {activeTab === 'bus' && <BusTab conducts={conducts} monthKey={monthKey} />}
-            {activeTab === 'medic' && <MedicTab conducts={conducts} monthKey={monthKey} />}
+            {activeTab === 'bus' && <BusTab conducts={filteredConducts} monthKey={monthKey} />}
+            {activeTab === 'medic' && (
+              <MedicTab conducts={filteredConducts} monthKey={monthKey} />
+            )}
             {activeTab === 'summary' && (
-              <IndentSummaryTab conducts={conducts} monthKey={monthKey} />
+              <IndentSummaryTab conducts={filteredConducts} monthKey={monthKey} />
             )}
           </>
         )}
@@ -267,12 +387,24 @@ export default function App() {
       {modalOpen && (
         <AddConductModal
           cwos={cwos}
+          homeSchool={homeSchool}
           initialDate={prefillDate}
           editEntry={editEntry}
           onSave={handleSaveConduct}
           onSaveCwo={handleSaveCwo}
           onDelete={handleDeleteConduct}
           onClose={closeModal}
+        />
+      )}
+
+      {noteModalOpen && (
+        <AddNoteModal
+          homeSchool={homeSchool}
+          initialDate={prefillDate}
+          editEntry={editNote}
+          onSave={handleSaveNote}
+          onDelete={handleDeleteNote}
+          onClose={closeNoteModal}
         />
       )}
     </div>

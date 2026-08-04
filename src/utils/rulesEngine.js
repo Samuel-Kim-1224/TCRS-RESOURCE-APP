@@ -185,7 +185,8 @@ export function generateIndents(entry) {
     const endTime = timing ? timing[1] : '';
     for (const v of resources.vehicles) {
       if (v === '5Ton') {
-        pushPrepark('5 TON GS');
+        // RM 12+ needs day-of 5Ton only — no prepark.
+        if (entry.conductKey !== 'RM') pushPrepark('5 TON GS');
         for (const day of days) {
           vehicleRows.push(
             mkRow('5 TON GS', day, timing[0], day, { rowKind: 'conduct', endTime }),

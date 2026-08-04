@@ -1,6 +1,6 @@
 import { generateIndents } from './rulesEngine.js';
 import { generateBusTrips } from './busEngine.js';
-import { companyName } from '../data/companies.js';
+import { companyName, companySchool, schoolUnitLabel } from '../data/companies.js';
 import { formatDDMMYYYY, dayOfMonth, daysInMonth, isoForMonthDay } from './dateUtils.js';
 
 export const VEHICLE_HEADERS = [
@@ -23,12 +23,13 @@ export function vehicleRowsForEntry(entry, cwos) {
   const { vehicleRows } = generateIndents(entry);
   const cwo = cwos[entry.companyCode] || { name: '', number: '' };
   const coyName = companyName(entry.companyCode);
+  const schLabel = schoolUnitLabel(companySchool(entry.companyCode) || 'II');
   const rows = [];
 
   for (const r of vehicleRows) {
     rows.push({
       cells: [
-        `SCH 2 - ${entry.companyCode} COY - ${r.label}`,
+        `${schLabel} - ${entry.companyCode} COY - ${r.label}`,
         r.vehicleType,
         '1',
         '1',
@@ -40,7 +41,7 @@ export function vehicleRowsForEntry(entry, cwos) {
         coyName,
         cwo.name,
         cwo.number,
-        'TCRS 1 SCH 2',
+        `TCRS 1 ${schLabel}`,
         r.prepark ? 'PREPARK' : '',
       ],
       sortDate: r.startDate,

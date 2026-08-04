@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js';
+import { companySchool } from '../data/companies.js';
 
 const CONDUCT_FIELDS = {
   companyCode: 'company_code',
@@ -19,6 +20,15 @@ const CONDUCT_FIELDS = {
   btpRange: 'btp_range',
   fcSite: 'fc_site',
   sitTestSite: 'sit_test_site',
+  school: 'school',
+};
+
+const NOTE_FIELDS = {
+  companyCode: 'company_code',
+  body: 'body',
+  date: 'start_date',
+  endDate: 'end_date',
+  school: 'school',
 };
 
 function throwIfError(error, action) {
@@ -27,13 +37,19 @@ function throwIfError(error, action) {
   }
 }
 
+function withSchool(payload) {
+  const school = payload.school || companySchool(payload.companyCode);
+  return { ...payload, school };
+}
+
 function conductToRow(conduct) {
+  const source = withSchool(conduct);
   const row = {};
 
-  if (conduct.id) row.id = conduct.id;
+  if (source.id) row.id = source.id;
 
   for (const [appField, databaseField] of Object.entries(CONDUCT_FIELDS)) {
-    const value = conduct[appField];
+    const value = source[appField];
     row[databaseField] = value === '' || value === undefined ? null : value;
   }
 
@@ -50,27 +66,54 @@ function rowToConduct(row) {
   return conduct;
 }
 
+function noteToRow(note) {
+  const source = withSchool(note);
+  const row = {};
+
+  if (source.id) row.id = source.id;
+
+  for (const [appField, databaseField] of Object.entries(NOTE_FIELDS)) {
+    const value = source[appField];
+    row[databaseField] = value === '' || value === undefined ? null : value;
+  }
+
+  return row;
+}
+
+function rowToNote(row) {
+  const note = { id: row.id };
+
+  for (const [appField, databaseField] of Object.entries(NOTE_FIELDS)) {
+    note[appField] = row[databaseField] ?? '';
+  }
+
+  return note;
+}
+
 function rowsToCwos(rows) {
   return Object.fromEntries(
     rows.map((row) => [
       row.company_code,
-      { name: row.cwo_name, number: row.cwo_number },
+      { name: row.cwo_name, number: row.cwo_number, school: row.school },
     ])
   );
 }
 
 export async function loadSchedulerData() {
-  const [conductResult, cwoResult] = await Promise.all([
+  const [conductResult, cwoResult, noteResult] = await Promise.all([
     supabase.from('conducts').select('*').order('start_date').order('created_at'),
     supabase.from('company_cwos').select('*').order('company_code'),
+    supabase.from('notes').select('*').order('start_date').order('created_at'),
   ]);
 
   throwIfError(conductResult.error, 'Could not load conducts');
   throwIfError(cwoResult.error, 'Could not load CWO records');
+  throwIfError(noteResult.error, 'Could not load notes');
 
   return {
     conducts: conductResult.data.map(rowToConduct),
     cwos: rowsToCwos(cwoResult.data),
+    notes: noteResult.data.map(rowToNote),
   };
 }
 
@@ -105,12 +148,45 @@ export async function deleteConduct(id) {
   throwIfError(error, 'Could not delete conduct');
 }
 
+export async function createNote(note) {
+  const { data, error } = await supabase
+    .from('notes')
+    .insert(noteToRow(note))
+    .select()
+    .single();
+
+  throwIfError(error, 'Could not add note');
+  return rowToNote(data);
+}
+
+export async function updateNote(note) {
+  const row = noteToRow(note);
+  delete row.id;
+
+  const { data, error } = await supabase
+    .from('notes')
+    .update(row)
+    .eq('id', note.id)
+    .select()
+    .single();
+
+  throwIfError(error, 'Could not update note');
+  return rowToNote(data);
+}
+
+export async function deleteNote(id) {
+  const { error } = await supabase.from('notes').delete().eq('id', id);
+  throwIfError(error, 'Could not delete note');
+}
+
 export async function upsertCwo(companyCode, cwo) {
+  const school = cwo.school || companySchool(companyCode);
   const { error } = await supabase.from('company_cwos').upsert(
     {
       company_code: companyCode,
       cwo_name: cwo.name,
       cwo_number: cwo.number,
+      school,
     },
     { onConflict: 'company_code' }
   );
@@ -131,6 +207,7 @@ export async function importLocalSchedulerData(conducts, cwos) {
     company_code: companyCode,
     cwo_name: cwo.name,
     cwo_number: cwo.number,
+    school: cwo.school || companySchool(companyCode),
   }));
 
   if (cwoRows.length > 0) {
