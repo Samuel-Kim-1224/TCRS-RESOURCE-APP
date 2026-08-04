@@ -57,21 +57,32 @@ export default function App() {
   const [editNote, setEditNote] = useState(null);
   const [theme, setTheme] = useState(() => getStoredTheme());
   const [activeSchools, setActiveSchools] = useState(() =>
-    Object.fromEntries(SCHOOLS.map((s) => [s.id, true]))
+    Object.fromEntries(SCHOOLS.map((s) => [s.id, false]))
   );
   const migrationAttemptedForUser = useRef(null);
 
   const homeSchool = schoolFromSession(session);
   const accountLabel = usernameFromSession(session);
 
+  // Own school is always on; other schools start off until toggled.
+  useEffect(() => {
+    if (!homeSchool) return;
+    setActiveSchools(
+      Object.fromEntries(SCHOOLS.map((s) => [s.id, s.id === homeSchool]))
+    );
+  }, [homeSchool]);
+
+  const schoolVisible = (school) =>
+    school === homeSchool || !!activeSchools[school];
+
   const filteredConducts = useMemo(
     () =>
       conducts.filter((c) => {
         const school = companySchool(c.companyCode) || c.school;
         if (!school) return true;
-        return !!activeSchools[school];
+        return schoolVisible(school);
       }),
-    [conducts, activeSchools]
+    [conducts, activeSchools, homeSchool]
   );
 
   const filteredNotes = useMemo(
@@ -79,20 +90,14 @@ export default function App() {
       notes.filter((n) => {
         const school = companySchool(n.companyCode) || n.school;
         if (!school) return true;
-        return !!activeSchools[school];
+        return schoolVisible(school);
       }),
-    [notes, activeSchools]
+    [notes, activeSchools, homeSchool]
   );
 
   const toggleSchool = (schoolId) => {
-    setActiveSchools((prev) => {
-      const currentlyOn = !!prev[schoolId];
-      if (currentlyOn) {
-        const othersOn = SCHOOLS.some((s) => s.id !== schoolId && prev[s.id]);
-        if (!othersOn) return prev;
-      }
-      return { ...prev, [schoolId]: !currentlyOn };
-    });
+    if (schoolId === homeSchool) return;
+    setActiveSchools((prev) => ({ ...prev, [schoolId]: !prev[schoolId] }));
   };
 
   useEffect(() => {
@@ -336,8 +341,8 @@ export default function App() {
         <MonthNav monthKey={monthKey} onChange={setMonthKey} />
         <div className="school-filter" role="group" aria-label="Filter by school">
           {SCHOOLS.map((school) => {
-            const on = !!activeSchools[school.id];
             const isHome = school.id === homeSchool;
+            const on = isHome || !!activeSchools[school.id];
             return (
               <button
                 key={school.id}
@@ -345,6 +350,8 @@ export default function App() {
                 className={`school-filter-btn ${on ? 'school-filter-btn-active' : ''} ${isHome ? 'school-filter-btn-home' : ''}`}
                 style={{ '--school-color': school.color }}
                 aria-pressed={on}
+                aria-disabled={isHome || undefined}
+                title={isHome ? 'Your school (always shown)' : undefined}
                 onClick={() => toggleSchool(school.id)}
               >
                 {school.label}
