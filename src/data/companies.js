@@ -5,7 +5,11 @@ export const SCHOOLS = [
   { id: 'II', label: 'Sch II', color: '#dc2626' }, // red
   { id: 'III', label: 'Sch III', color: '#16a34a' }, // green
   { id: 'IV', label: 'Sch IV', color: '#2563eb' }, // blue
+  { id: 'HQ', label: 'HQ', color: '#475569' }, // slate
 ];
+
+/** Calendar filter chips — schools with companies only (not HQ). */
+export const FILTER_SCHOOLS = SCHOOLS.filter((s) => s.id !== 'HQ');
 
 export const COMPANIES = [
   // School I
@@ -84,6 +88,7 @@ export const companiesForSchool = (schoolId) =>
 
 /** Display label for indent rows, e.g. "SCH 2". */
 export const schoolUnitLabel = (schoolId) => {
+  if (schoolId === 'HQ') return 'HQ';
   const map = { I: '1', II: '2', III: '3', IV: '4' };
   return `SCH ${map[schoolId] ?? schoolId}`;
 };

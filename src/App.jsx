@@ -23,7 +23,7 @@ import {
 import { loadConducts, loadCwos } from './utils/storage.js';
 import { toISO } from './utils/dateUtils.js';
 import { applyTheme, getStoredTheme, saveTheme } from './utils/theme.js';
-import { SCHOOLS, companySchool } from './data/companies.js';
+import { FILTER_SCHOOLS, companySchool } from './data/companies.js';
 import { schoolFromSession, usernameFromSession } from './data/schools.js';
 
 const TABS = [
@@ -57,23 +57,27 @@ export default function App() {
   const [editNote, setEditNote] = useState(null);
   const [theme, setTheme] = useState(() => getStoredTheme());
   const [activeSchools, setActiveSchools] = useState(() =>
-    Object.fromEntries(SCHOOLS.map((s) => [s.id, false]))
+    Object.fromEntries(FILTER_SCHOOLS.map((s) => [s.id, false]))
   );
   const migrationAttemptedForUser = useRef(null);
 
   const homeSchool = schoolFromSession(session);
   const accountLabel = usernameFromSession(session);
+  const isHq = homeSchool === 'HQ';
 
-  // Own school is always on; other schools start off until toggled.
+  // School accounts: own school always on, others off until toggled.
+  // HQ: all schools on by default (overview).
   useEffect(() => {
     if (!homeSchool) return;
     setActiveSchools(
-      Object.fromEntries(SCHOOLS.map((s) => [s.id, s.id === homeSchool]))
+      Object.fromEntries(
+        FILTER_SCHOOLS.map((s) => [s.id, isHq || s.id === homeSchool])
+      )
     );
-  }, [homeSchool]);
+  }, [homeSchool, isHq]);
 
   const schoolVisible = (school) =>
-    school === homeSchool || !!activeSchools[school];
+    (!isHq && school === homeSchool) || !!activeSchools[school];
 
   const filteredConducts = useMemo(
     () =>
@@ -340,8 +344,8 @@ export default function App() {
       <div className="tab-toolbar">
         <MonthNav monthKey={monthKey} onChange={setMonthKey} />
         <div className="school-filter" role="group" aria-label="Filter by school">
-          {SCHOOLS.map((school) => {
-            const isHome = school.id === homeSchool;
+          {FILTER_SCHOOLS.map((school) => {
+            const isHome = !isHq && school.id === homeSchool;
             const on = isHome || !!activeSchools[school.id];
             return (
               <button

@@ -175,6 +175,11 @@ button {
   gap: 0.65rem;
 }
 
+.auth-hq-btn {
+  width: 100%;
+  margin-bottom: 0.15rem;
+}
+
 .auth-school-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

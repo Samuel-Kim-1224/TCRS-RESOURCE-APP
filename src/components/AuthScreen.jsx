@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase.js';
-import { SCHOOL_ACCOUNTS } from '../data/schools.js';
+import { HQ_ACCOUNT, SCHOOL_ACCOUNTS, SCHOOL_LOGIN_ACCOUNTS } from '../data/schools.js';
 import { schoolColor } from '../data/companies.js';
 
 export default function AuthScreen() {
@@ -16,7 +16,7 @@ export default function AuthScreen() {
 
     const account = SCHOOL_ACCOUNTS.find((a) => a.username === username);
     if (!account) {
-      setError('Select SCH1, SCH2, SCH3, or SCH4.');
+      setError('Select HQ, SCH1, SCH2, SCH3, or SCH4.');
       setSubmitting(false);
       return;
     }
@@ -33,19 +33,31 @@ export default function AuthScreen() {
     setSubmitting(false);
   };
 
+  const hqActive = username === HQ_ACCOUNT.username;
+  const hqColor = schoolColor(HQ_ACCOUNT.school);
+
   return (
     <main className="auth-shell">
       <section className="auth-card">
         <div className="auth-heading">
           <span className="app-title-mark">TCRS</span>
           <h1>Conduct &amp; Indent Scheduler</h1>
-          <p>Select your school, then enter the password.</p>
+          <p>Select your account, then enter the password.</p>
         </div>
 
         <form className="auth-form" onSubmit={handleSubmit}>
-          <label className="form-label">School account</label>
+          <label className="form-label">Account</label>
+          <button
+            type="button"
+            className={`auth-school-btn auth-hq-btn ${hqActive ? 'auth-school-btn-active' : ''}`}
+            style={{ '--school-color': hqColor }}
+            aria-pressed={hqActive}
+            onClick={() => setUsername(HQ_ACCOUNT.username)}
+          >
+            {HQ_ACCOUNT.username}
+          </button>
           <div className="auth-school-grid" role="group" aria-label="School account">
-            {SCHOOL_ACCOUNTS.map((account) => {
+            {SCHOOL_LOGIN_ACCOUNTS.map((account) => {
               const active = username === account.username;
               const color = schoolColor(account.school);
               return (
