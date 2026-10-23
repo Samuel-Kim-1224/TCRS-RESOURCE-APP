@@ -64,7 +64,7 @@ function resourcesFor(entry, def, combatFit) {
  * Turns one conduct entry (as captured by the Add Conduct form) into the
  * rows needed for the Vehicle tab and Medic tab.
  */
-export function generateIndents(entry) {
+export function generateIndents(entry, isMono = false) {
   const def = conductDef(entry.conductKey);
   const vehicleRows = [];
   const medicRows = [];
@@ -99,16 +99,18 @@ export function generateIndents(entry) {
 
   const resources = resourcesFor(entry, def, combatFit);
 
-  for (const day of days) {
-    const dayLabel = conductDisplayName(entry, day);
-    medicRows.push({
-      day,
-      period: periodLabel,
-      companyCode: entry.companyCode,
-      start: resources.medic && timing ? timing[0] : '',
-      end: resources.medic && timing ? timing[1] : '',
-      conductLabel: dayLabel,
-    });
+  if (!isMono) {
+    for (const day of days) {
+      const dayLabel = conductDisplayName(entry, day);
+      medicRows.push({
+        day,
+        period: periodLabel,
+        companyCode: entry.companyCode,
+        start: resources.medic && timing ? timing[0] : '',
+        end: resources.medic && timing ? timing[1] : '',
+        conductLabel: dayLabel,
+      });
+    }
   }
 
   const mkRow = (vehicleType, sDate, sTime, eDate, opts = {}) => ({
@@ -126,6 +128,17 @@ export function generateIndents(entry) {
 
   const pushPrepark = (vehicleType) => {
     const prepDate = previousWorkingDay(startDate);
+    if (entry.conductKey === 'BPK') {
+      vehicleRows.push(
+        mkRow(vehicleType, prepDate, '15:00', startDate, {
+          prepark: true,
+          endTime: '16:00',
+          rowKind: 'prepark',
+          nameSuffix: 'prepark',
+        }),
+      );
+      return;
+    }
     vehicleRows.push(
       mkRow(vehicleType, prepDate, '15:00', prepDate, {
         prepark: true,

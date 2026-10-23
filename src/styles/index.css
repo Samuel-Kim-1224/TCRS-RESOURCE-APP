@@ -495,6 +495,11 @@ button {
   background: var(--panel-raised);
 }
 
+.calendar-cell-today {
+  box-shadow: inset 0 0 0 2px var(--amber);
+  background: var(--surface-hover-soft);
+}
+
 .calendar-cell-empty {
   cursor: default;
   background: repeating-linear-gradient(135deg, transparent 0 6px, var(--empty-cell-stripe) 6px 7px);
@@ -505,10 +510,31 @@ button {
 }
 
 .calendar-date {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.65rem;
+  min-height: 1.65rem;
+  padding: 0 0.25rem;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
   font-family: var(--font-mono);
   font-size: 0.78rem;
   color: var(--text-muted);
   margin-bottom: 0.3rem;
+}
+
+.calendar-date:hover {
+  background: var(--surface-hover);
+  color: var(--amber);
+}
+
+.calendar-date-today {
+  background: var(--amber);
+  color: var(--btn-primary-text);
+  font-weight: 700;
 }
 
 .calendar-entries {
@@ -536,27 +562,9 @@ button {
   filter: brightness(0.97);
 }
 
-.calendar-chip-note {
-  border-left-style: dashed;
-  border-style: dashed;
-  border-width: 1px;
-  border-left-width: 3px;
-}
-
-.chip-cancelled {
-  border-left-color: var(--danger) !important;
-  background: var(--panel-raised) !important;
-  opacity: 0.6;
-  text-decoration: line-through;
-}
-
 .chip-coy {
   font-weight: 600;
-  color: var(--amber);
-}
-
-.chip-cancelled .chip-coy {
-  color: var(--danger);
+  color: var(--chip-coy-color, var(--amber));
 }
 
 .chip-name {
@@ -575,6 +583,34 @@ button {
   color: var(--text-muted);
   font-size: 0.62rem;
   width: 100%;
+}
+
+[data-theme='dark'] .calendar-chip .chip-coy,
+[data-theme='dark'] .calendar-chip .chip-name,
+[data-theme='dark'] .calendar-chip .chip-period,
+[data-theme='dark'] .calendar-chip .chip-location,
+[data-theme='dark'] .calendar-chip .note-chip-title,
+[data-theme='dark'] .calendar-chip .note-chip-remarks {
+  color: #111;
+}
+
+.note-chip-title,
+.note-chip-remarks {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.note-chip-title {
+  font-weight: 700;
+}
+
+.note-chip-remarks {
+  font-weight: 400;
+  font-size: 0.62rem;
 }
 
 .range-preview {
@@ -874,6 +910,35 @@ button {
 }
 
 .note-multiday input {
+  accent-color: var(--amber);
+}
+
+.following-coys {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.following-coy-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.following-coy-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-raised);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.following-coy-option input {
   accent-color: var(--amber);
 }
 

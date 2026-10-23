@@ -58,6 +58,7 @@ export const CONDUCTS = [
   { key: 'DAC', label: 'DAC', category: 'special1' },
   { key: 'WP', label: 'WP', category: 'special1' },
   { key: 'BPK', label: 'BPK', category: 'special2' },
+  { key: 'IMT', label: 'IMT', category: 'calendarOnly', calendarOnly: true },
   {
     key: 'IPPT',
     label: 'IPPT',
@@ -94,6 +95,7 @@ export const CONDUCT_TYPE_COLORS = {
   DAC: '#ddd6fe',
   WP: '#e9d5ff',
   BPK: '#f5d0fe',
+  IMT: '#d9f99d',
   IPPT: '#bae6fd',
   BIC: '#99f6e4',
   ISAD: '#a5f3fc',

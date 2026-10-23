@@ -22,6 +22,9 @@ function ammoLine(conductKey) {
   if (conductKey === 'IFC') {
     return '• AMMO: (5.56 BLANK- ) (7.62 BLANK- ) (TRIP FLARE- ) (SMOKE- ) [STO No. ]';
   }
+  if (conductKey === 'BIC') {
+    return '• AMMO: (5.56 BLANK- ) (7.62 BALL- ) [STO No. ]';
+  }
   return null;
 }
 
@@ -37,12 +40,14 @@ function medicVehicleLine(entry, vehicleRows, medicRows) {
   return `• Medic ${time}`;
 }
 
-function preparkLine(vehicleRows) {
-  const prep = vehicleRows.find((r) => r.prepark && r.vehicleType === '5 TON GS');
-  if (!prep) return null;
-  const start = prep.startTime.replace(':', '');
-  const end = (prep.endTime || '16:00').replace(':', '');
-  return `• 5 TON GS (Prepark: ${formatDDMMYY(prep.startDate)}, ${start}-${end})`;
+function preparkLines(vehicleRows) {
+  return vehicleRows
+    .filter((row) => row.prepark)
+    .map((row) => {
+      const start = row.startTime.replace(':', '');
+      const end = (row.endTime || '16:00').replace(':', '');
+      return `• ${row.vehicleType} PREPARK: ${formatDDMMYY(row.startDate)} ${start} – ${formatDDMMYY(row.endDate)} ${end}`;
+    });
 }
 
 function luvLine(entry, vehicleRows) {
@@ -61,21 +66,22 @@ function luvLine(entry, vehicleRows) {
   return `• LUV (Ammo) for DRAW ${drawTime}, RETURN ${returnTime}`;
 }
 
-function busLines(entry) {
-  const trips = generateBusTrips(entry);
+function busLines(entry, companyCode = null) {
+  const trips = generateBusTrips(entry).filter((trip) => !companyCode || trip.companyCode === companyCode);
   if (!trips.length) return [];
 
   const byDay = {};
   for (const t of trips) {
-    (byDay[t.day] ||= []).push(t);
+    const key = `${t.day}|${t.companyCode}`;
+    (byDay[key] ||= []).push(t);
   }
 
-  const days = Object.keys(byDay).sort();
   const lines = [];
   const allDays = dateRange(entry.date, entry.endDate || entry.date);
 
-  for (const day of days) {
-    const dayTrips = byDay[day];
+  for (const key of Object.keys(byDay).sort()) {
+    const [day, company] = key.split('|');
+    const dayTrips = byDay[key];
     const nmt = dayTrips.filter((t) => !t.tripName.includes('RTU') && !t.tripName.includes('TRANSITION'));
     const rtu = dayTrips.filter((t) => t.tripName.includes('RTU') || t.tripName.includes('TRANSITION'));
 
@@ -98,21 +104,21 @@ function busLines(entry) {
     const tripNote = twoTrips ? ' TWO TRIPS' : '';
 
     if (nmtParts && rtuParts) {
-      lines.push(`• Bus: ${nmtParts}, ${rtuParts}${tripNote} [${dayLabel}]`);
+      lines.push(`• Bus (${company}): ${nmtParts}, ${rtuParts}${tripNote} [${dayLabel}]`);
     } else if (nmtParts) {
-      lines.push(`• Bus: ${nmtParts}${tripNote} [${dayLabel}]`);
+      lines.push(`• Bus (${company}): ${nmtParts}${tripNote} [${dayLabel}]`);
     } else if (rtuParts) {
-      lines.push(`• Bus: ${rtuParts}${tripNote} [${dayLabel}]`);
+      lines.push(`• Bus (${company}): ${rtuParts}${tripNote} [${dayLabel}]`);
     }
   }
   return lines;
 }
 
-function conductBlock(entry) {
+function conductBlock(entry, cwos = {}, selectedBusCompany = null) {
   const def = conductDef(entry.conductKey);
   if (entry.status === 'not conducting') return null;
 
-  const { vehicleRows, medicRows } = generateIndents(entry);
+  const { vehicleRows, medicRows } = generateIndents(entry, !!cwos[entry.companyCode]?.isMono);
   const lines = [];
   const header = `${formatDateRange(entry)} ${conductDisplayName(entry)}`;
 
@@ -126,13 +132,12 @@ function conductBlock(entry) {
   const medic = medicVehicleLine(entry, vehicleRows, medicRows);
   if (medic) lines.push(medic);
 
-  const prepark = preparkLine(vehicleRows);
-  if (prepark) lines.push(prepark);
+  lines.push(...preparkLines(vehicleRows));
 
   const luv = luvLine(entry, vehicleRows);
   if (luv) lines.push(luv);
 
-  lines.push(...busLines(entry));
+  lines.push(...busLines(entry, selectedBusCompany));
 
   if (!lines.length) {
     const medicOnly = medicVehicleLine(entry, vehicleRows, medicRows);
@@ -144,17 +149,66 @@ function conductBlock(entry) {
 }
 
 /** Build per-company CWO update text blocks for the month. */
-export function buildCompanySummaries(conducts, monthKey) {
+export function buildCompanySummaries(conducts, monthKey, cwos = {}) {
   const inMonth = conducts
-    .filter((c) => conductOverlapsMonth(c, monthKey) && c.status !== 'not conducting')
+    .filter((c) => conductOverlapsMonth(c, monthKey))
     .slice()
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
-  return COMPANIES.map((company) => {
-    const companyConducts = inMonth.filter((c) => c.companyCode === company.code);
-    if (!companyConducts.length) return null;
+  const blocksByCompany = new Map();
+  const pushBlock = (companyCode, block) => {
+    if (!block) return;
+    (blocksByCompany.get(companyCode) || blocksByCompany.set(companyCode, []).get(companyCode)).push(block);
+  };
 
-    const blocks = companyConducts.map(conductBlock).filter(Boolean);
+  const legacyEntries = inMonth.filter((item) => item.status === 'not conducting');
+  const conductingEntries = inMonth.filter((item) => item.status !== 'not conducting');
+  const legacyAttachments = new Map();
+  for (const legacy of legacyEntries) {
+    const host = conductingEntries.find((conduct) =>
+      legacy.companyCode !== conduct.companyCode &&
+      legacy.conductKey === conduct.conductKey &&
+      legacy.date === conduct.date &&
+      (legacy.endDate || legacy.date) === (conduct.endDate || conduct.date),
+    );
+    if (host) {
+      (legacyAttachments.get(host.id) || legacyAttachments.set(host.id, []).get(host.id))
+        .push(legacy.companyCode);
+    }
+  }
+
+  const normalizedEntries = conductingEntries
+    .map((conduct) => {
+      return {
+        ...conduct,
+        followingCompanyCodes: [...new Set([
+          ...(conduct.followingCompanyCodes || []),
+          ...(legacyAttachments.get(conduct.id) || []),
+        ])],
+      };
+    });
+
+  for (const conduct of normalizedEntries) {
+    pushBlock(conduct.companyCode, conductBlock(conduct, cwos));
+    for (const followingCompany of conduct.followingCompanyCodes || []) {
+      const trips = busLines(conduct, followingCompany);
+      if (trips.length) {
+        const header = `${formatDateRange(conduct)} ${conductDisplayName(conduct)}`;
+        pushBlock(followingCompany, `${header}\n${trips.join('\n')}`);
+      }
+    }
+  }
+
+  for (const legacy of legacyEntries) {
+    const host = normalizedEntries.find((item) => item.followingCompanyCodes.includes(legacy.companyCode));
+    if (!host) {
+      pushBlock(legacy.companyCode, conductBlock({ ...legacy, status: 'conducting' }, cwos));
+    }
+  }
+
+  return COMPANIES.map((company) => {
+    const blocks = blocksByCompany.get(company.code) || [];
+    if (!blocks.length) return null;
     const text = `**${company.name} COY INDENT UPDATE**\n\n${blocks.join('\n\n')}`;
     return { companyCode: company.code, companyName: company.name, text };
   }).filter(Boolean);

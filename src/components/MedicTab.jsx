@@ -1,8 +1,8 @@
 import SpreadsheetTable from './SpreadsheetTable.jsx';
 import { buildMonthRows, MEDIC_HEADERS } from '../utils/buildRows.js';
 
-export default function MedicTab({ conducts, monthKey }) {
-  const rows = buildMonthRows(conducts, {}, monthKey, 'medic');
+export default function MedicTab({ conducts, cwos, monthKey }) {
+  const rows = buildMonthRows(conducts, cwos, monthKey, 'medic');
   return (
     <SpreadsheetTable
       headers={MEDIC_HEADERS}

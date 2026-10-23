@@ -3,6 +3,7 @@ import { companySchool } from '../data/companies.js';
 
 const CONDUCT_FIELDS = {
   companyCode: 'company_code',
+  followingCompanyCodes: 'following_company_codes',
   conductKey: 'conduct_key',
   date: 'start_date',
   endDate: 'end_date',
@@ -25,7 +26,8 @@ const CONDUCT_FIELDS = {
 
 const NOTE_FIELDS = {
   companyCode: 'company_code',
-  body: 'body',
+  title: 'title',
+  remarks: 'remarks',
   date: 'start_date',
   endDate: 'end_date',
   school: 'school',
@@ -50,7 +52,11 @@ function conductToRow(conduct) {
 
   for (const [appField, databaseField] of Object.entries(CONDUCT_FIELDS)) {
     const value = source[appField];
-    row[databaseField] = value === '' || value === undefined ? null : value;
+    if (appField === 'followingCompanyCodes') {
+      row[databaseField] = Array.isArray(value) ? value : [];
+    } else {
+      row[databaseField] = value === '' || value === undefined ? null : value;
+    }
   }
 
   return row;
@@ -60,7 +66,7 @@ function rowToConduct(row) {
   const conduct = { id: row.id };
 
   for (const [appField, databaseField] of Object.entries(CONDUCT_FIELDS)) {
-    conduct[appField] = row[databaseField] ?? '';
+    conduct[appField] = row[databaseField] ?? (appField === 'followingCompanyCodes' ? [] : '');
   }
 
   return conduct;
@@ -74,8 +80,13 @@ function noteToRow(note) {
 
   for (const [appField, databaseField] of Object.entries(NOTE_FIELDS)) {
     const value = source[appField];
-    row[databaseField] = value === '' || value === undefined ? null : value;
+    row[databaseField] = appField === 'title' || appField === 'remarks'
+      ? value || ''
+      : value === '' || value === undefined ? null : value;
   }
+
+  // Keep the legacy column populated for clients that still read it.
+  row.body = source.remarks || '';
 
   return row;
 }
@@ -86,6 +97,7 @@ function rowToNote(row) {
   for (const [appField, databaseField] of Object.entries(NOTE_FIELDS)) {
     note[appField] = row[databaseField] ?? '';
   }
+  note.remarks ||= row.body ?? '';
 
   return note;
 }
@@ -94,7 +106,7 @@ function rowsToCwos(rows) {
   return Object.fromEntries(
     rows.map((row) => [
       row.company_code,
-      { name: row.cwo_name, number: row.cwo_number, school: row.school },
+      { name: row.cwo_name, number: row.cwo_number, school: row.school, isMono: !!row.is_mono },
     ])
   );
 }
@@ -187,6 +199,7 @@ export async function upsertCwo(companyCode, cwo) {
       cwo_name: cwo.name,
       cwo_number: cwo.number,
       school,
+      is_mono: !!cwo.isMono,
     },
     { onConflict: 'company_code' }
   );
@@ -208,6 +221,7 @@ export async function importLocalSchedulerData(conducts, cwos) {
     cwo_name: cwo.name,
     cwo_number: cwo.number,
     school: cwo.school || companySchool(companyCode),
+    is_mono: !!cwo.isMono,
   }));
 
   if (cwoRows.length > 0) {

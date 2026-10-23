@@ -23,6 +23,7 @@ import { addDays, dateRange, formatDDMMYYYY } from '../utils/dateUtils.js';
 
 const emptyForm = {
   companyCode: '',
+  followingCompanyCodes: [],
   conductKey: '',
   rmKm: '',
   rmPes: '',
@@ -36,7 +37,6 @@ const emptyForm = {
   fcSite: '',
   sitTestSite: '',
   period: '',
-  status: 'conducting',
   pes: '',
   date: '',
   endDate: '',
@@ -46,6 +46,7 @@ function entryToForm(entry) {
   if (!entry) return emptyForm;
   return {
     companyCode: entry.companyCode || '',
+    followingCompanyCodes: entry.followingCompanyCodes || [],
     conductKey: entry.conductKey || '',
     rmKm: entry.rmKm || '',
     rmPes: entry.rmPes || '',
@@ -59,7 +60,6 @@ function entryToForm(entry) {
     fcSite: entry.fcSite || '',
     sitTestSite: entry.sitTestSite || '',
     period: entry.period || '',
-    status: entry.status || 'conducting',
     pes: entry.pes || '',
     date: entry.date || '',
     endDate: entry.endDate || '',
@@ -102,12 +102,21 @@ export default function AddConductModal({
     if (editEntry) return (cwos[editEntry.companyCode] || {}).number || '';
     return '';
   });
+  const [multiCoyEnabled, setMultiCoyEnabled] = useState(
+    () => !!editEntry?.followingCompanyCodes?.length,
+  );
+  const [isMono, setIsMono] = useState(
+    () => !!cwos[editEntry?.companyCode]?.isMono,
+  );
 
   useEffect(() => {
     if (form.companyCode) {
       const saved = cwos[form.companyCode] || { name: '', number: '' };
       setCwoName(saved.name);
       setCwoNumber(saved.number);
+      setIsMono(!!saved.isMono);
+    } else {
+      setIsMono(false);
     }
   }, [form.companyCode, cwos]);
 
@@ -146,7 +155,19 @@ export default function AddConductModal({
   }, [form.date, form.endDate, hasFixedDays, previewEndDate]);
 
   const handleSelectCompany = (code) => {
-    set({ companyCode: code });
+    set({
+      companyCode: code,
+      followingCompanyCodes: form.followingCompanyCodes.filter((following) => following !== code),
+    });
+  };
+
+  const toggleFollowingCompany = (code) => {
+    const selected = form.followingCompanyCodes.includes(code);
+    set({
+      followingCompanyCodes: selected
+        ? form.followingCompanyCodes.filter((following) => following !== code)
+        : [...form.followingCompanyCodes, code],
+    });
   };
 
   const handleSelectConduct = (key) => {
@@ -191,11 +212,13 @@ export default function AddConductModal({
       if (
         !savedCwo ||
         savedCwo.name !== effectiveCwoName ||
-        savedCwo.number !== effectiveCwoNumber
+        savedCwo.number !== effectiveCwoNumber ||
+        !!savedCwo.isMono !== isMono
       ) {
         await onSaveCwo(form.companyCode, {
           name: effectiveCwoName,
           number: effectiveCwoNumber,
+          isMono,
         });
       }
 
@@ -208,6 +231,7 @@ export default function AddConductModal({
 
       await onSave({
         ...form,
+        status: 'conducting',
         school: homeSchool,
         sitTestSite: hasSitTest(form) ? form.sitTestSite : '',
         endDate,
@@ -283,6 +307,49 @@ export default function AddConductModal({
                     value={cwoNumber}
                     onChange={(e) => setCwoNumber(e.target.value)}
                   />
+                </div>
+                <label className="note-multiday">
+                  <input
+                    type="checkbox"
+                    checked={isMono}
+                    onChange={(e) => setIsMono(e.target.checked)}
+                  />
+                  MONO coy (no medic indents)
+                </label>
+              </div>
+            )}
+          </section>
+
+          <section className="form-section">
+            <button
+              type="button"
+              className={`pill ${multiCoyEnabled ? 'pill-active' : ''}`}
+              disabled={!form.companyCode}
+              aria-pressed={multiCoyEnabled}
+              onClick={() => {
+                const enabled = !multiCoyEnabled;
+                setMultiCoyEnabled(enabled);
+                if (!enabled) set({ followingCompanyCodes: [] });
+              }}
+            >
+              MULTI COY
+            </button>
+            {multiCoyEnabled && form.companyCode && (
+              <div className="following-coys">
+                <span className="field-hint">Following companies (lead: {form.companyCode})</span>
+                <div className="following-coy-list">
+                  {companiesForSchool(homeSchool)
+                    .filter((company) => company.code !== form.companyCode)
+                    .map((company) => (
+                      <label key={company.code} className="following-coy-option">
+                        <input
+                          type="checkbox"
+                          checked={form.followingCompanyCodes.includes(company.code)}
+                          onChange={() => toggleFollowingCompany(company.code)}
+                        />
+                        <span style={{ color: companyColor(company.code) }}>{company.code}</span>
+                      </label>
+                    ))}
                 </div>
               </div>
             )}
@@ -541,22 +608,6 @@ export default function AddConductModal({
                     : 'Full-day conduct — no AM/PM needed.'}
                 </span>
               )}
-            </div>
-          </section>
-
-          <section className="form-section">
-            <label className="form-label">Status</label>
-            <div className="pill-row">
-              {['conducting', 'not conducting'].map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  className={`pill ${form.status === s ? 'pill-active' : ''}`}
-                  onClick={() => set({ status: s })}
-                >
-                  {s}
-                </button>
-              ))}
             </div>
           </section>
 

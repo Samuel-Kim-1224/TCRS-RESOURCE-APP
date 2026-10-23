@@ -24,6 +24,7 @@ function mkTrip(day, time, companyCode, tripName, from, to) {
     tripName,
     route: routeLabel(from, to),
     buses: '4',
+    gap: busGapMinutes(from, to),
   };
 }
 
@@ -92,13 +93,13 @@ function bicTrips(entry) {
   const period = entry.period || 'AM';
   if (period === 'PM') {
     return [
-      mkTrip(day, '11:00', entry.companyCode, 'BIC NMT', MTL, BIC_RANGE),
-      mkTrip(day, '17:00', entry.companyCode, 'BIC RTU', BIC_RANGE, MTL),
+      ...twoBusTrips(day, '11:00', entry.companyCode, 'BIC NMT', MTL, BIC_RANGE),
+      ...twoBusTrips(day, '17:00', entry.companyCode, 'BIC RTU', BIC_RANGE, MTL),
     ];
   }
   return [
-    mkTrip(day, '08:00', entry.companyCode, 'BIC NMT', MTL, BIC_RANGE),
-    mkTrip(day, '12:00', entry.companyCode, 'BIC RTU', BIC_RANGE, MTL),
+    ...twoBusTrips(day, '08:00', entry.companyCode, 'BIC NMT', MTL, BIC_RANGE),
+    ...twoBusTrips(day, '12:00', entry.companyCode, 'BIC RTU', BIC_RANGE, MTL),
   ];
 }
 
@@ -112,27 +113,114 @@ function isadTrips(entry) {
   ];
 }
 
-/** Generate bus/troop-lift trips for one conduct entry. */
+function tripDirection(trip) {
+  if (/RTU|RETURN/i.test(trip.tripName)) return 'RTU';
+  if (/NMT|WAVE/i.test(trip.tripName)) return 'NMT';
+  return trip.tripName;
+}
+
+function timeMinutes(time) {
+  const [hours, minutes] = time.split(':').map(Number);
+  return hours * 60 + minutes;
+}
+
+function absoluteMinutes(day, time) {
+  const [year, month, date] = day.split('-').map(Number);
+  return Date.UTC(year, month - 1, date) / 60000 + timeMinutes(time);
+}
+
+function dayAndTimeFromAbsoluteMinutes(minutes) {
+  const date = new Date(minutes * 60000);
+  return {
+    day: date.toISOString().slice(0, 10),
+    time: `${String(date.getUTCHours()).padStart(2, '0')}:${String(date.getUTCMinutes()).padStart(2, '0')}`,
+  };
+}
+
+function distributeTripsAmongCompanies(entry, trips) {
+  const companies = [entry.companyCode, ...(entry.followingCompanyCodes || [])].filter(Boolean);
+  if (companies.length < 2) return trips;
+
+  const groups = new Map();
+  for (const trip of trips) {
+    const tripGroup = entry.conductKey === 'HG' ? trip.tripName : tripDirection(trip);
+    const key = `${trip.day}|${tripGroup}`;
+    (groups.get(key) || groups.set(key, []).get(key)).push(trip);
+  }
+
+  const orderedGroups = [...groups.values()].map((group) => {
+    const tripsWithAbsoluteTime = group.map((trip) => ({
+      trip,
+      time: absoluteMinutes(trip.day, trip.time),
+    }));
+    return { tripsWithAbsoluteTime, start: Math.min(...tripsWithAbsoluteTime.map(({ time }) => time)) };
+  }).sort((a, b) => a.start - b.start);
+
+  const distributed = [];
+  let cursor = null;
+  for (const { tripsWithAbsoluteTime, start } of orderedGroups) {
+    const lastTime = Math.max(...tripsWithAbsoluteTime.map(({ time }) => time));
+    const duration = lastTime - start;
+    const group = tripsWithAbsoluteTime.map(({ trip }) => trip);
+    const routeGap = Math.max(0, ...group.map((trip) => trip.gap || 0));
+    const orderedTimes = tripsWithAbsoluteTime.map(({ time }) => time).sort((a, b) => a - b);
+    const observedSpacing = orderedTimes.length > 1
+      ? Math.max(...orderedTimes.slice(1).map((time, index) => time - orderedTimes[index]))
+      : 0;
+    const slotGap = Math.max(routeGap, observedSpacing, 1);
+
+    companies.forEach((companyCode, companyIndex) => {
+      const candidateStart = start + companyIndex * (duration + slotGap);
+      const companyStart = cursor === null
+        ? candidateStart
+        : Math.max(candidateStart, cursor + slotGap);
+      const offset = companyStart - start;
+      for (const { trip, time } of tripsWithAbsoluteTime) {
+        const scheduled = dayAndTimeFromAbsoluteMinutes(time + offset);
+        distributed.push({
+          ...trip,
+          companyCode,
+          ...scheduled,
+        });
+      }
+      cursor = companyStart + duration;
+    });
+  }
+
+  return distributed.sort((a, b) =>
+    a.day.localeCompare(b.day) || a.time.localeCompare(b.time) || a.companyCode.localeCompare(b.companyCode),
+  );
+}
+
+/** Generate bus/troop-lift trips for the lead and following companies. */
 export function generateBusTrips(entry) {
   const def = conductDef(entry.conductKey);
-  if (!def || def.calendarOnly || entry.status === 'not conducting') {
+  if (!def || def.calendarOnly) {
     return [];
   }
 
+  let trips;
   switch (entry.conductKey) {
     case 'BTP':
-      return entry.btpRange ? btpTrips(entry) : [];
+      trips = entry.btpRange ? btpTrips(entry) : [];
+      break;
     case 'HG':
-      return hgTrips(entry);
+      trips = hgTrips(entry);
+      break;
     case 'IFC':
-      return entry.fcSite ? ifcTrips(entry) : [];
+      trips = entry.fcSite ? ifcTrips(entry) : [];
+      break;
     case 'BIC':
-      return bicTrips(entry);
+      trips = bicTrips(entry);
+      break;
     case 'ISAD':
-      return isadTrips(entry);
+      trips = isadTrips(entry);
+      break;
     default:
-      return [];
+      trips = [];
   }
+
+  return distributeTripsAmongCompanies(entry, trips);
 }
 
 /** Format bus trips as a summary line for indent summary. */

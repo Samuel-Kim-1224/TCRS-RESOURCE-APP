@@ -20,7 +20,7 @@ function conductOverlapsMonth(entry, monthKey) {
 
 /** Builds the flat list of Vehicle-tab rows (as column arrays) for one conduct entry. */
 export function vehicleRowsForEntry(entry, cwos) {
-  const { vehicleRows } = generateIndents(entry);
+  const { vehicleRows } = generateIndents(entry, !!cwos[entry.companyCode]?.isMono);
   const cwo = cwos[entry.companyCode] || { name: '', number: '' };
   const coyName = companyName(entry.companyCode);
   const schLabel = schoolUnitLabel(companySchool(entry.companyCode) || 'II');
@@ -55,8 +55,8 @@ export function vehicleRowsForEntry(entry, cwos) {
 }
 
 /** Builds the flat list of Medic-tab rows (as column arrays) for one conduct entry. */
-export function medicRowsForEntry(entry) {
-  const { medicRows } = generateIndents(entry);
+export function medicRowsForEntry(entry, cwos = {}) {
+  const { medicRows } = generateIndents(entry, !!cwos[entry.companyCode]?.isMono);
   const coyName = companyName(entry.companyCode);
   return medicRows.map((r) => ({
     cells: [dayOfMonth(r.day), r.period, coyName, r.start, r.end, r.conductLabel],
@@ -69,7 +69,7 @@ export function medicRowsForEntry(entry) {
 export function busRowsForEntry(entry) {
   const trips = generateBusTrips(entry);
   return trips.map((t) => ({
-    cells: ['', dayOfMonth(t.day), '', t.time, entry.companyCode, t.tripName, t.route, t.buses],
+    cells: ['', dayOfMonth(t.day), '', t.time, t.companyCode || entry.companyCode, t.tripName, t.route, t.buses],
     sortDate: t.day,
     sortTime: t.time,
     entryId: entry.id,
@@ -109,14 +109,24 @@ function sortVehicleRows(a, b) {
 /** Filters + flattens + sorts rows for all conducts overlapping monthKey ('yyyy-mm'). */
 export function buildMonthRows(conducts, cwos, monthKey, kind) {
   if (kind === 'medic') {
-    return buildMedicMonthRows(conducts, monthKey);
+    return buildMedicMonthRows(conducts, monthKey, cwos);
+  }
+
+  if (kind === 'bus') {
+    return conducts
+      .flatMap((conduct, entryOrder) =>
+        busRowsForEntry(conduct).map((row) => ({ ...row, entryOrder })),
+      )
+      .filter((row) => row.sortDate.slice(0, 7) === monthKey)
+      .sort((a, b) =>
+        a.sortDate.localeCompare(b.sortDate) ||
+        a.sortTime.localeCompare(b.sortTime) ||
+        a.entryOrder - b.entryOrder,
+      );
   }
 
   const inMonth = conducts.filter((c) => conductOverlapsMonth(c, monthKey));
-  const builder =
-    kind === 'vehicle'
-      ? (c) => vehicleRowsForEntry(c, cwos)
-      : (c) => busRowsForEntry(c);
+  const builder = (c) => vehicleRowsForEntry(c, cwos);
   const rows = inMonth.flatMap((conduct, entryOrder) =>
     builder(conduct).map((row) => ({ ...row, entryOrder })),
   );
@@ -139,10 +149,10 @@ export function buildMonthRows(conducts, cwos, monthKey, kind) {
  * Days with no conducts get a blank placeholder row; days with multiple
  * medic/conduct lines get multiple rows under the same date number.
  */
-export function buildMedicMonthRows(conducts, monthKey) {
+export function buildMedicMonthRows(conducts, monthKey, cwos = {}) {
   const inMonth = conducts.filter((c) => conductOverlapsMonth(c, monthKey));
   const populated = inMonth.flatMap((conduct, entryOrder) =>
-    medicRowsForEntry(conduct)
+    medicRowsForEntry(conduct, cwos)
       .filter((row) => row.sortDate.slice(0, 7) === monthKey)
       .map((row) => ({ ...row, entryOrder })),
   );

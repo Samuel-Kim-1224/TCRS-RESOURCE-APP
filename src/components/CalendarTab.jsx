@@ -33,7 +33,6 @@ function chipStyleForConduct(c, homeSchool) {
       borderLeftColor: coy,
       background: fill,
       '--chip-coy-color': coy,
-      coyColor: coy,
     };
   }
 
@@ -42,7 +41,6 @@ function chipStyleForConduct(c, homeSchool) {
     borderLeftColor: wash,
     background: wash,
     '--chip-coy-color': wash,
-    coyColor: wash,
   };
 }
 
@@ -57,7 +55,6 @@ function chipStyleForNote(note, homeSchool) {
       borderLeftColor: coy,
       background: fill,
       '--chip-coy-color': coy,
-      coyColor: coy,
     };
   }
 
@@ -66,7 +63,6 @@ function chipStyleForNote(note, homeSchool) {
     borderLeftColor: wash,
     background: wash,
     '--chip-coy-color': wash,
-    coyColor: wash,
   };
 }
 
@@ -76,10 +72,12 @@ export default function CalendarTab({
   notes = [],
   homeSchool,
   onDayClick,
+  onDateCornerClick,
   onConductClick,
   onNoteClick,
 }) {
   const cells = buildGrid(monthKey);
+  const today = toISO(new Date());
 
   const byDate = {};
   for (const c of conducts) {
@@ -110,12 +108,23 @@ export default function CalendarTab({
         {cells.map((iso, i) => (
           <div
             key={i}
-            className={`calendar-cell ${iso ? '' : 'calendar-cell-empty'}`}
+            className={`calendar-cell ${iso ? '' : 'calendar-cell-empty'} ${iso === today ? 'calendar-cell-today' : ''}`}
             onClick={() => iso && onDayClick && onDayClick(iso)}
           >
             {iso && (
               <>
-                <div className="calendar-date">{parseInt(iso.slice(8), 10)}</div>
+                <button
+                  type="button"
+                  className={`calendar-date ${iso === today ? 'calendar-date-today' : ''}`}
+                  aria-label={`Add note on ${iso}`}
+                  title="Add note"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDateCornerClick ? onDateCornerClick(iso) : onDayClick?.(iso);
+                  }}
+                >
+                  {parseInt(iso.slice(8), 10)}
+                </button>
                 <div className="calendar-entries">
                   {(byDate[iso] || []).map(({ kind, item, day }) => {
                     if (kind === 'note') {
@@ -123,7 +132,7 @@ export default function CalendarTab({
                       return (
                         <div
                           key={`note-${item.id}-${day}`}
-                          className="calendar-chip calendar-chip-note"
+                          className="calendar-chip"
                           style={{
                             borderLeftColor: style.borderLeftColor,
                             background: style.background,
@@ -135,11 +144,17 @@ export default function CalendarTab({
                             onNoteClick && onNoteClick(item);
                           }}
                         >
-                          <span className="chip-coy" style={{ color: style.coyColor }}>
-                            {item.companyCode}
-                          </span>
-                          <span className="chip-name">NOTE</span>
-                          <span className="chip-location">{item.body}</span>
+                          {item.companyCode && (
+                            <span className="chip-coy">{item.companyCode}</span>
+                          )}
+                          {item.title && (
+                            <span className="note-chip-title" title={item.title}>{item.title}</span>
+                          )}
+                          {(item.remarks || item.body) && (
+                            <span className="note-chip-remarks" title={item.remarks || item.body}>
+                              {item.remarks || item.body}
+                            </span>
+                          )}
                         </div>
                       );
                     }
@@ -150,7 +165,7 @@ export default function CalendarTab({
                     return (
                       <div
                         key={`${c.id}-${day}`}
-                        className={`calendar-chip ${c.status === 'not conducting' ? 'chip-cancelled' : ''}`}
+                        className="calendar-chip"
                         style={{
                           borderLeftColor: style.borderLeftColor,
                           background: style.background,
@@ -162,8 +177,8 @@ export default function CalendarTab({
                           onConductClick && onConductClick(c);
                         }}
                       >
-                        <span className="chip-coy" style={{ color: style.coyColor }}>
-                          {c.companyCode}
+                        <span className="chip-coy">
+                          {[c.companyCode, ...(c.followingCompanyCodes || [])].filter(Boolean).join(' + ')}
                         </span>
                         <span className="chip-name">{conductDisplayName(c, day)}</span>
                         {loc && <span className="chip-location">{loc}</span>}

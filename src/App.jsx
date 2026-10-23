@@ -55,6 +55,7 @@ export default function App() {
   const [prefillDate, setPrefillDate] = useState(null);
   const [editEntry, setEditEntry] = useState(null);
   const [editNote, setEditNote] = useState(null);
+  const [noteReadOnly, setNoteReadOnly] = useState(false);
   const [theme, setTheme] = useState(() => getStoredTheme());
   const [activeSchools, setActiveSchools] = useState(() =>
     Object.fromEntries(FILTER_SCHOOLS.map((s) => [s.id, false]))
@@ -199,6 +200,7 @@ export default function App() {
     setNoteModalOpen(false);
     setPrefillDate(null);
     setEditNote(null);
+    setNoteReadOnly(false);
   };
 
   const handleSaveConduct = async (entry) => {
@@ -263,16 +265,15 @@ export default function App() {
 
   const openAddNoteModal = (dateIso) => {
     setEditNote(null);
+    setNoteReadOnly(false);
     setPrefillDate(dateIso || null);
     setNoteModalOpen(true);
   };
 
   const openEditNoteModal = (entry) => {
     const school = companySchool(entry.companyCode) || entry.school;
-    if (school && homeSchool && school !== homeSchool) {
-      setDataError('Other school notes are view-only. Sign in to that school to edit.');
-      return;
-    }
+    setDataError('');
+    setNoteReadOnly(!!(school && homeSchool && school !== homeSchool));
     setEditNote(entry);
     setPrefillDate(null);
     setNoteModalOpen(true);
@@ -377,6 +378,7 @@ export default function App() {
                 notes={filteredNotes}
                 homeSchool={homeSchool}
                 onDayClick={openAddModal}
+                onDateCornerClick={openAddNoteModal}
                 onConductClick={openEditModal}
                 onNoteClick={openEditNoteModal}
               />
@@ -386,10 +388,10 @@ export default function App() {
             )}
             {activeTab === 'bus' && <BusTab conducts={filteredConducts} monthKey={monthKey} />}
             {activeTab === 'medic' && (
-              <MedicTab conducts={filteredConducts} monthKey={monthKey} />
+              <MedicTab conducts={filteredConducts} cwos={cwos} monthKey={monthKey} />
             )}
             {activeTab === 'summary' && (
-              <IndentSummaryTab conducts={filteredConducts} monthKey={monthKey} />
+              <IndentSummaryTab conducts={filteredConducts} cwos={cwos} monthKey={monthKey} />
             )}
           </>
         )}
@@ -413,6 +415,7 @@ export default function App() {
           homeSchool={homeSchool}
           initialDate={prefillDate}
           editEntry={editNote}
+          readOnly={noteReadOnly}
           onSave={handleSaveNote}
           onDelete={handleDeleteNote}
           onClose={closeNoteModal}

@@ -1,8 +1,8 @@
 import { buildCompanySummaries } from '../utils/summaryText.js';
 import { copyToClipboard } from '../utils/clipboard.js';
 
-export default function IndentSummaryTab({ conducts, monthKey }) {
-  const summaries = buildCompanySummaries(conducts, monthKey);
+export default function IndentSummaryTab({ conducts, cwos, monthKey }) {
+  const summaries = buildCompanySummaries(conducts, monthKey, cwos);
 
   const copyAll = () => {
     const text = summaries.map((s) => s.text).join('\n\n---\n\n');
