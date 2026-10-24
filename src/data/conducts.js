@@ -29,7 +29,16 @@ export const BTP_RANGE_OPTIONS = ['100m Range I', '100m Range II'];
 
 export const FC_SITE_OPTIONS = Array.from({ length: 11 }, (_, i) => `FC Site ${i + 1}`);
 
-export const SITTEST_SITE_OPTIONS = ['Sittest Site 1', 'Sittest Site 2'];
+export const SITTEST_SITE_OPTIONS = ['Sitest Site 1', 'Sitest Site 2'];
+
+const LEGACY_SITTEST_SITE_NAMES = {
+  'Sittest Site 1': 'Sitest Site 1',
+  'Sittest Site 2': 'Sitest Site 2',
+};
+
+export function normalizeSitTestSite(site) {
+  return LEGACY_SITTEST_SITE_NAMES[site] || site || '';
+}
 
 export const CONDUCTS = [
   { key: 'SOC', label: 'SOC', category: 'normal', subFields: ['socPes'] },

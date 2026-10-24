@@ -194,7 +194,7 @@ export default function AddConductModal({
     const patch = { pes: p };
     if (form.conductKey === 'IFC') {
       if (p === 'Combat fit') {
-        patch.sitTestSite = form.sitTestSite || 'Sittest Site 1';
+        patch.sitTestSite = form.sitTestSite || 'Sitest Site 1';
       } else {
         patch.sitTestSite = '';
       }

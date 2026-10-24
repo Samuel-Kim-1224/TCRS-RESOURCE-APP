@@ -85,7 +85,7 @@ Business logic lives in `conducts.js`, `rulesEngine.js`, `busEngine.js`, and
 2. **SOC BP / Non-BP** — dedicated sub-field separate from BMT/Non-BMT toggle.
 3. **BPK** — LUV prepark only (previous working day 16:00 → conduct day 17:00).
 4. **BTP** — unified 2-day conduct; user picks 100m Range I or II.
-5. **IFC** — 5-day conduct from start date; FC Site 1–11 + Sittest Site 1/2
+5. **IFC** — 5-day conduct from start date; FC Site 1–11 + Sitest Site 1/2
    (defaults to Site 1). Calendar day 5 labelled SIT test; spreadsheets treat
    all 5 days as FC for medic/vehicle.
 6. **BIC bus trips** — AM/PM session picker for bus timing; vehicle/medic stay

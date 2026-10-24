@@ -1,5 +1,6 @@
 import { supabase } from './supabase.js';
 import { companySchool } from '../data/companies.js';
+import { normalizeSitTestSite } from '../data/conducts.js';
 
 const CONDUCT_FIELDS = {
   companyCode: 'company_code',
@@ -54,6 +55,8 @@ function conductToRow(conduct) {
     const value = source[appField];
     if (appField === 'followingCompanyCodes') {
       row[databaseField] = Array.isArray(value) ? value : [];
+    } else if (appField === 'sitTestSite') {
+      row[databaseField] = normalizeSitTestSite(value) || null;
     } else {
       row[databaseField] = value === '' || value === undefined ? null : value;
     }
@@ -68,6 +71,7 @@ function rowToConduct(row) {
   for (const [appField, databaseField] of Object.entries(CONDUCT_FIELDS)) {
     conduct[appField] = row[databaseField] ?? (appField === 'followingCompanyCodes' ? [] : '');
   }
+  conduct.sitTestSite = normalizeSitTestSite(conduct.sitTestSite);
 
   return conduct;
 }

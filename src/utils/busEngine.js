@@ -1,4 +1,4 @@
-import { conductDef, hasSitTest } from '../data/conducts.js';
+import { conductDef, hasSitTest, normalizeSitTestSite } from '../data/conducts.js';
 import { dateRange } from './dateUtils.js';
 import {
   MTL,
@@ -63,7 +63,7 @@ function hgTrips(entry) {
 
 function ifcTrips(entry) {
   const fcSite = entry.fcSite || 'FC Site 1';
-  const sitSite = entry.sitTestSite || 'Sittest Site 1';
+  const sitSite = normalizeSitTestSite(entry.sitTestSite) || 'Sitest Site 1';
   const days = dateRange(entry.date, entry.endDate || entry.date);
   const trips = [];
 
