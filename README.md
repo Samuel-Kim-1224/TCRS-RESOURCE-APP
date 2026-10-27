@@ -21,6 +21,11 @@ vehicle, medic, bus/troop-lift, and indent summary outputs that go with them.
 - **Medic tab** — one row per conduct per day.
 - **Indent Summary tab** — per-company CWO update text blocks with copy buttons
   (AMMO placeholders left empty per spec).
+- **Spreadsheet summary import** — upload ICRF, MEDIC, and Troop Lift `.xlsx`
+  files together or in partial updates. The importer detects workbook types,
+  ignores red-highlighted ICRF rows, groups matching company/conduct entries,
+  and keeps unmatched rows in a review list. Imported summaries are stored in
+  the browser per school and do not modify saved conducts.
 - **re-IFC** and **re-SIT test** — calendar-only conducts (no sheet rows).
 - Conducts and CWO details persist in Supabase and are shared by authenticated users.
 - Existing browser `localStorage` data is imported automatically when the shared database is empty.
@@ -66,6 +71,8 @@ src/
     summaryText.js   per-company CWO indent summary text
     clipboard.js     copy-to-clipboard / CSV export
     storage.js       legacy localStorage import
+    xlsxReader.js    browser-side XLSX values and fill-color parsing
+    summaryImport.js reverse summary grouping and spreadsheet normalization
   lib/
     supabase.js       Supabase browser client
     database.js       conduct and CWO database operations

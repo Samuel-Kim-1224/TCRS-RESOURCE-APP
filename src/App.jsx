@@ -391,7 +391,7 @@ export default function App() {
               <MedicTab conducts={filteredConducts} cwos={cwos} monthKey={monthKey} />
             )}
             {activeTab === 'summary' && (
-              <IndentSummaryTab conducts={filteredConducts} cwos={cwos} monthKey={monthKey} />
+              <IndentSummaryTab conducts={conducts} cwos={cwos} monthKey={monthKey} homeSchool={homeSchool} />
             )}
           </>
         )}
