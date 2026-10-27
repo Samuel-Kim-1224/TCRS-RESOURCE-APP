@@ -636,6 +636,90 @@ button {
   gap: 1rem;
 }
 
+.summary-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.summary-skeleton-status {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
+.summary-skeleton-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.summary-skeleton-bar {
+  background: linear-gradient(
+    105deg,
+    var(--panel-raised) 25%,
+    color-mix(in srgb, var(--amber) 16%, var(--panel-raised)) 43%,
+    var(--panel-raised) 61%
+  );
+  background-size: 240% 100%;
+  animation: summary-skeleton-shimmer 1.45s ease-in-out infinite;
+}
+
+.summary-skeleton-title {
+  width: 32%;
+  height: 1.2rem;
+}
+
+.summary-skeleton-line {
+  width: 72%;
+  height: 0.65rem;
+}
+
+.summary-skeleton-line-wide {
+  width: 92%;
+}
+
+.summary-skeleton-line-short {
+  width: 48%;
+}
+
+@keyframes summary-skeleton-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+.summary-fatal-error {
+  padding: 1.25rem;
+  background: var(--panel);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+}
+
+.summary-fatal-error h2 {
+  margin: 0 0 0.6rem;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+}
+
+.summary-fatal-error p {
+  margin: 0.45rem 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.summary-fatal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
 .summary-import-panel,
 .summary-review-panel {
   padding: 1rem;
@@ -1323,5 +1407,9 @@ select:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
+  }
+
+  .summary-skeleton-bar {
+    animation: none;
   }
 }
