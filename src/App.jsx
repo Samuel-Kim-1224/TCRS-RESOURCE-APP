@@ -5,6 +5,7 @@ import VehicleTab from './components/VehicleTab.jsx';
 import MedicTab from './components/MedicTab.jsx';
 import BusTab from './components/BusTab.jsx';
 import IndentSummaryTab from './components/IndentSummaryTab.jsx';
+import ManualIndentSummaryTab from './components/ManualIndentSummaryTab.jsx';
 import AddConductModal from './components/AddConductModal.jsx';
 import AddNoteModal from './components/AddNoteModal.jsx';
 import AuthScreen from './components/AuthScreen.jsx';
@@ -32,6 +33,7 @@ const TABS = [
   { key: 'bus', label: 'Bus / Troop-lift' },
   { key: 'medic', label: 'Medic' },
   { key: 'summary', label: 'Indent Summary' },
+  { key: 'manual-summary', label: 'Manual Indent Summary' },
 ];
 
 function currentMonthKey() {
@@ -392,6 +394,9 @@ export default function App() {
             )}
             {activeTab === 'summary' && (
               <IndentSummaryTab conducts={filteredConducts} cwos={cwos} monthKey={monthKey} />
+            )}
+            {activeTab === 'manual-summary' && (
+              <ManualIndentSummaryTab homeSchool={homeSchool} monthKey={monthKey} />
             )}
           </>
         )}

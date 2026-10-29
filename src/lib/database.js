@@ -211,6 +211,52 @@ export async function upsertCwo(companyCode, cwo) {
   throwIfError(error, 'Could not save CWO record');
 }
 
+export async function loadManualIndentSummary(school, monthKey) {
+  const { data, error } = await supabase
+    .from('manual_indent_summaries')
+    .select('school, month_key, sources, summaries, updated_at')
+    .eq('school', school)
+    .eq('month_key', monthKey)
+    .maybeSingle();
+
+  throwIfError(error, 'Could not load manual indent summary');
+  return data
+    ? {
+        school: data.school,
+        monthKey: data.month_key,
+        sources: data.sources || {},
+        summaries: data.summaries || [],
+        updatedAt: data.updated_at,
+      }
+    : null;
+}
+
+export async function saveManualIndentSummary({ school, monthKey, sources, summaries }) {
+  const { data, error } = await supabase
+    .from('manual_indent_summaries')
+    .upsert(
+      {
+        school,
+        month_key: monthKey,
+        sources,
+        summaries,
+        updated_by: (await supabase.auth.getUser()).data.user?.id || null,
+      },
+      { onConflict: 'school,month_key' },
+    )
+    .select('school, month_key, sources, summaries, updated_at')
+    .single();
+
+  throwIfError(error, 'Could not save manual indent summary');
+  return {
+    school: data.school,
+    monthKey: data.month_key,
+    sources: data.sources || {},
+    summaries: data.summaries || [],
+    updatedAt: data.updated_at,
+  };
+}
+
 export async function importLocalSchedulerData(conducts, cwos) {
   const operations = [];
 

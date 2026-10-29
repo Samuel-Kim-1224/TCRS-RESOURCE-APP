@@ -1,0 +1,135 @@
+Manual Indent Summary
+
+Outline,Context:
+I want to create a new tab. Indent summary tab however manual.
+The need for this is because after the ICRF, MEDIC, and Troop Lift sheet is out, I still need to make my own small little edits. Once I make the edits only then I would want to send the indent summary to the coylines. So I want to create a “Indent summary generator”. This indent generator tab should use files uploaded in dropbox to create an indent summary just like the indent summary tab however using the newly uploaded files that contain up to date ICRF MEDIC AND TROOP LIFT SHEETS.
+
+Function Details:
+
+1. Dropbox:
+The user should be able to upload multiple files at once. Either by drag and drop or click the dropbox and selecting files. This tab will not reject or refrain from processing and outputting summary for dates out of the month (e.g. if there are indents inside the files for dates past the month it should still reflect/be included in the summary) however, changing the month should have a fresh memory of the indents. For example: if a user did not generate anything inside the month of november do not show any indent summaries on this tab. Once the user generates one summary, dont show the dropbox so big. Just give like an UPDATE INDENT SUMMARY BUTTON then can have popup for uploadpage/dropbox. 
+
+
+2. ICRF:
+It will be a xlsx file format will correspond to the icrf section’s sheet however please refer to the attached icrf file in this prompt. 
+COMPANY is under 9-10 column reporting and destination. Take the company from there.
+
+CONDUCT NAME column contains the name of the use. CONDUCT NAME can be derived from this column. Content will be something like: “SCH 2 - X COY - CONDUCT NAME” or it could be SCH 2 - CONDUCT NAME.” In both cases take the conduct name from here. 
+
+
+DATE is in 4th and 6th column (start and end date), if certain indents have the same date and same conduct name.
+
+Even if the conduct name only partially or doesnt match. If it is under same coy within the date and time duration of another conduct list it under that block of the summary. 
+
+3. MEDIC ROSTER:
+The user will upload a xlsx file. 
+COY check company in coy column (column 3).
+CONDUCT is under conduct column (column 6).
+TIMING under timing column just show the starting time.
+
+If within same date and time period please add on same conduct indent summary block.
+
+4. TROOP LIFT SHEET or TROOP LIFT:
+
+
+There should be two different ways the user should be able to upload this. One is an xlsx file and other is a long list text just copy paste from clipboard.
+Troop Lift Sheet - It will be similar but some columns may get added or removed so just be cautious which column the app searches. The column that says “Day” (refer to the document to know where to see the column title) contains which day of the month (consider the month as the month the tab is on.
+COY/UNIT column contains the coy initials (L, M, N or J and so on) as a single letter. Use the coy to check the coy first and then there should be a high key (if the naming is different must rely on the date) within the duration of the same day. 
+TIME refer to time column (not time gap).
+NO. OF BUSES there is also this number of buses column that must be found. Under here two things must be checked. If the number is non zero just in the indent summary the number of busses should just be that number. However, if it is 0 code must check the corresponding remarks section or tonners section to seek for other numbers that may represent the number of tonners. 
+
+5. Processing and Formatting.
+Before anything make sure the indent summary is specific to the school the user is logged onto. Don’t add and create summaries for other school coy. Follow the formatting for the original indent summary tab. For example:
+
+**KESTREL COY INDENT UPDATE**
+
+311026–041126 IFC
+• AMMO: (5.56 BLANK- ) (7.62 BLANK- ) (TRIP FLARE- ) (SMOKE- ) [STO No. ]
+• Medic, SOUV 0515
+• 5 TON GS PREPARK: 301026 1500 – 301026 1600
+• LUV (Ammo) for DRAW 0500, RETURN 2200 FIRST and LAST FC day.
+• Bus (K): 09:00 MTL→FC SITE 4 (x4), 09:50 MTL→FC SITE 4 (x4) TWO TRIPS [31 Oct]
+• Bus (K): 15:00 FC SITE 4→SITEST SITE 1 (x4), 15:40 FC SITE 4→SITEST SITE 1 (x4) TWO TRIPS [3 Nov]
+• Bus (K): 16:00 SITEST SITE 1→MTL (x4), 16:40 SITEST SITE 1→MTL (x4) TWO TRIPS [4 Nov]
+
+061126 RM 8KM BMT/PTP
+• Medic, SOUV 0600
+
+101126–111126 BTP
+• AMMO: (BALL- ) (TRACER- ) [STO No. ]
+• Medic, SOUV 0515
+• 5 TON GS PREPARK: 091126 1500 – 091126 1600
+• LUV (Ammo) for DRAW 0500, RETURN 2359 both Day1,2
+• Bus (K): 07:00 MTL→100M RANGE (x4), 23:59 100M RANGE→MTL (x4) [Day 1]
+• Bus (K): 07:00 MTL→100M RANGE (x4), 23:59 100M RANGE→MTL (x4) [Day 2]
+
+161126 BIC
+• AMMO: (5.56 BLANK- ) (7.62 BALL- ) [STO No. ]
+• Medic, SOUV 0515
+• 5 TON GS PREPARK: 131126 1500 – 131126 1600
+• LUV (Ammo) for DRAW 0500, RETURN 2200
+• Bus (K): 08:00 MTL→BIC RANGE (x4), 08:30 MTL→BIC RANGE (x4), 12:00 BIC RANGE→MTL (x4), 12:30 BIC RANGE→MTL (x4) TWO TRIPS [16 Nov]
+
+171126 IPPT3
+• Medic 0500
+
+181126 RM 12+KM BMT/PTP
+• Medic, SOUV 1530
+
+Make sure if it is an ammo conduct keep the ammo and placeholder as usual (you know what ammo conducts are ISAD, BTP, BIC, HG, IFC. 
+Above shows the order/format: 
+Title: date ddmmyy 0500 then CONDUCT NAME
+If there is: the order would be: 
+- Ammo details
+- Medic, souv HHMM
+- 5Ton prepark date andt timing
+- 5Ton reporting time
+- LUV draw, return HHMM
+
+All these formatting just use the above example. BUT for buses(trooplift) follow this format (it is one of the bulletpoints under conduct indents:
+- Troop Lift (BUS/Tonner)
+	0730	HG Wave1		MTL - HG RANGE	4x
+    1220	HG Wave2		MTL - HG RANGE	4x
+    1300	HG Wave1 RTU	HG RANGE - MTL	4x	
+    1700	HG Wave2 RTU	HG RANGE - MTL	4x
+
+If it is IFC:
+- Troop Lift (BUS/TONNER)
+    Ddmmyy FC NMT
+    0730	PLACE - PLACE	4x
+    1220	PLACE - PLACE	4x
+
+    Ddmmyy FC SITEST TRANSITION
+    0730	PLACE - PLACE	4x
+    1220	PLACE - PLACE	4x
+
+    Ddmmyy FC RTU
+    0730	PLACE - PLACE	4x
+    1220	PLACE - PLACE	4x
+
+Basically HHMM [tab] place-place [tab] No. of [tonner/bus]x
+
+If there still are indents that were unable to be determined which conduct it is under just put it in the to be determined section as bullet points. Space it out by date.
+
+6. Loading screen if needed:
+If loading screen is needed try the skeleton loading page type (stencil)
+
+
+7. TO END IT OFF ANY QUESTIONS?
+Please ask for any clarifications and if there are any changes after me answering the question please organize and edit this plan/prompt/update file. I will attach exemplar files for the ICRF, MEDIC ROSTER,
+
+
+Clarifications confirmed after reviewing the November example workbooks
+-----------------------------------------------------------------------
+
+- The Manual Indent Summary is a separate tab with the app's month navigation. Store generated results by school and month, shared with users of that school. A month with no generated result stays empty.
+- Keep generated text read-only in the app, with per-company and copy-all buttons like the original Indent Summary. Do not provide line-by-line editing.
+- Before a result exists for a month, show the upload/paste area. After generation, show an UPDATE INDENT SUMMARY button that opens the upload area.
+- Detect the type of each uploaded workbook. When updating, replace the previously imported rows for each source type represented in the new upload, combine multiple newly uploaded files of that type, and de-duplicate repeated rows. Preserve source types that were not uploaded.
+- Red-filled ICRF rows are cancelled. Exclude each cancelled row; keep a conduct if active rows or other valid indents remain, and omit it when no active indents remain.
+- The ICRF example has Activity Name in column A, Reporting/Destination in I/J, and start/end date/time in E-H. Use Reporting/Destination to identify company, and Activity Name for conduct. Handle Excel-formatted date/time values and variable column positions where possible.
+- The Medic example has Date, COY, Start Time, and Conduct columns. Use the selected app month for day-only dates. If a school-specific Medic row has a date/conduct but no company or time, retain it in the date-grouped To Be Determined section.
+- Troop Lift XLSX imports should detect the Day, Time, COY/UNIT, Purpose, route, bus-count, remarks, and 5-ton support columns by header. When bus count is zero, inspect remarks/tonner fields for a tonner count.
+- Troop Lift can also be pasted as a long, date-grouped text schedule (not as spreadsheet TSV). Parse the month title, date headings such as DD/MM, time or time range, route, bus/tonner quantity, and company/conduct clues in parentheses. Strip surrounding asterisks and ignore unrelated trailing notes. If the pasted schedule month differs from the selected app month, warn and block generation.
+- Use the logged-in school as the strict scope for company summaries and shared saved data. Keep unmatched conduct details for a known in-scope company in that company's To Be Determined section; do not expose other schools' companies.
+- Summary conduct headings show date(s) and conduct name without a time. Preserve the requested order: ammo, Medic, 5-ton prepark, 5-ton reporting, LUV, and Troop Lift. Use the detailed tab-separated Troop Lift layout; for IFC, group trips by date and phase (NMT, SITEST transition, RTU).
