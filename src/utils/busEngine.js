@@ -4,12 +4,16 @@ import {
   MTL,
   HG_RANGE,
   BIC_RANGE,
-  travelMinutes,
+  RANGE_100M,
   busGapMinutes,
   addMinutes,
   btpRangeLocation,
   routeLabel,
 } from '../data/busMatrix.js';
+
+const ISAD_EARLIEST_TIME = '07:00';
+// Preserve the existing 4-hour interval from first NMT wave to first RTU wave.
+const ISAD_RETURN_OFFSET_MINUTES = 4 * 60;
 
 /**
  * One bus trip row for the Bus / Troop-lift tab.
@@ -105,11 +109,14 @@ function bicTrips(entry) {
 
 function isadTrips(entry) {
   const day = entry.date;
+  const firstWaveTime = ISAD_EARLIEST_TIME;
+  const waveGap = busGapMinutes(MTL, RANGE_100M);
+  const returnStart = addMinutes(firstWaveTime, ISAD_RETURN_OFFSET_MINUTES);
   return [
-    mkTrip(day, '07:00', entry.companyCode, 'ISAD Wave1', MTL, MTL),
-    mkTrip(day, '07:40', entry.companyCode, 'ISAD Wave2', MTL, MTL),
-    mkTrip(day, '11:00', entry.companyCode, 'ISAD Wave1 RTU', MTL, MTL),
-    mkTrip(day, '11:40', entry.companyCode, 'ISAD Wave2 RTU', MTL, MTL),
+    mkTrip(day, firstWaveTime, entry.companyCode, 'ISAD Wave1', MTL, RANGE_100M),
+    mkTrip(day, addMinutes(firstWaveTime, waveGap), entry.companyCode, 'ISAD Wave2', MTL, RANGE_100M),
+    mkTrip(day, returnStart, entry.companyCode, 'ISAD Wave1 RTU', RANGE_100M, MTL),
+    mkTrip(day, addMinutes(returnStart, waveGap), entry.companyCode, 'ISAD Wave2 RTU', RANGE_100M, MTL),
   ];
 }
 
@@ -223,6 +230,85 @@ export function generateBusTrips(entry) {
   return distributeTripsAmongCompanies(entry, trips);
 }
 
+function tripsConflict(first, second) {
+  if (first.day !== second.day) return false;
+  const requiredGap = Math.max(first.gap || 0, second.gap || 0);
+  return Math.abs(timeMinutes(first.time) - timeMinutes(second.time)) < requiredGap;
+}
+
+function scheduleIsadGroup(group, reservations) {
+  const baseMinute = Math.min(...group.map((trip) => timeMinutes(trip.time)));
+  const earliestMinute = 7 * 60;
+  const initialShift = Math.max(0, earliestMinute - baseMinute);
+  const duration = Math.max(...group.map((trip) => timeMinutes(trip.time))) - baseMinute;
+  const lastShift = 24 * 60 - 1 - (baseMinute + duration);
+
+  for (let shift = initialShift; shift <= lastShift; shift += 5) {
+    const candidate = group.map((trip) => ({
+      ...trip,
+      time: addMinutes(trip.time, shift),
+    }));
+    if (!candidate.some((trip) => reservations.some((reserved) => tripsConflict(trip, reserved)))) {
+      return candidate;
+    }
+  }
+
+  return group.map((trip) => ({
+    ...trip,
+    time: 'UNSCHEDULED',
+    scheduleWarning: 'No conflict-free ISAD bus slot was available on this date after 07:00.',
+  }));
+}
+
+/** Generate trips for all entries and stagger ISAD against same-day bus conflicts. */
+export function generateBusTripsForConducts(conducts) {
+  const entries = conducts.map((entry, entryOrder) => ({
+    entry,
+    entryOrder,
+    trips: generateBusTrips(entry).map((trip) => ({ ...trip, entryOrder })),
+  }));
+  const fixedTrips = entries
+    .filter(({ entry }) => entry.conductKey !== 'ISAD')
+    .flatMap(({ trips }) => trips);
+  const occupiedByDay = new Map();
+  for (const trip of fixedTrips) {
+    if (!occupiedByDay.has(trip.day)) occupiedByDay.set(trip.day, []);
+    occupiedByDay.get(trip.day).push(trip);
+  }
+
+  const isadGroups = new Map();
+  for (const { entry, entryOrder, trips } of entries) {
+    if (entry.conductKey !== 'ISAD') continue;
+    for (const trip of trips) {
+      const key = `${entryOrder}|${trip.day}`;
+      if (!isadGroups.has(key)) isadGroups.set(key, []);
+      isadGroups.get(key).push(trip);
+    }
+  }
+
+  const scheduledIsad = [];
+  const orderedGroups = [...isadGroups.values()].sort((a, b) =>
+    a[0].day.localeCompare(b[0].day) || a[0].entryOrder - b[0].entryOrder,
+  );
+  for (const group of orderedGroups) {
+    const day = group[0].day;
+    const reservations = occupiedByDay.get(day) || [];
+    const scheduled = scheduleIsadGroup(group, reservations);
+    scheduledIsad.push(...scheduled);
+    occupiedByDay.set(day, [...reservations, ...scheduled]);
+  }
+
+  return [
+    ...fixedTrips,
+    ...scheduledIsad,
+  ].sort((a, b) =>
+    a.day.localeCompare(b.day) ||
+    a.time.localeCompare(b.time) ||
+    a.entryOrder - b.entryOrder ||
+    a.companyCode.localeCompare(b.companyCode),
+  );
+}
+
 /** Format bus trips as a summary line for indent summary. */
 export function formatBusSummaryLine(trips, dayLabel) {
   if (!trips.length) return '';
@@ -242,5 +328,3 @@ export function formatBusSummaryLine(trips, dayLabel) {
   }
   return lines.join('\n');
 }
-
-// travelMinutes used internally via busGapMinutes

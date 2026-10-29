@@ -1,7 +1,7 @@
 import { COMPANIES } from '../data/companies.js';
 import { conductDef, conductDisplayName, isCombatFit } from '../data/conducts.js';
 import { generateIndents } from './rulesEngine.js';
-import { generateBusTrips } from './busEngine.js';
+import { generateBusTripsForConducts } from './busEngine.js';
 import { formatDDMMYY, dateRange, formatDayLabel } from './dateUtils.js';
 
 function conductOverlapsMonth(entry, monthKey) {
@@ -66,8 +66,10 @@ function luvLine(entry, vehicleRows) {
   return `• LUV (Ammo) for DRAW ${drawTime}, RETURN ${returnTime}`;
 }
 
-function busLines(entry, companyCode = null) {
-  const trips = generateBusTrips(entry).filter((trip) => !companyCode || trip.companyCode === companyCode);
+function busLines(entry, scheduledTrips, companyCode = null) {
+  const trips = scheduledTrips.filter((trip) =>
+    trip.entryOrder === entry._busEntryOrder && (!companyCode || trip.companyCode === companyCode),
+  );
   if (!trips.length) return [];
 
   const byDay = {};
@@ -114,7 +116,7 @@ function busLines(entry, companyCode = null) {
   return lines;
 }
 
-function conductBlock(entry, cwos = {}, selectedBusCompany = null) {
+function conductBlock(entry, cwos = {}, selectedBusCompany = null, scheduledTrips = []) {
   const def = conductDef(entry.conductKey);
   if (entry.status === 'not conducting') return null;
 
@@ -137,7 +139,7 @@ function conductBlock(entry, cwos = {}, selectedBusCompany = null) {
   const luv = luvLine(entry, vehicleRows);
   if (luv) lines.push(luv);
 
-  lines.push(...busLines(entry, selectedBusCompany));
+  lines.push(...busLines(entry, scheduledTrips, selectedBusCompany));
 
   if (!lines.length) {
     const medicOnly = medicVehicleLine(entry, vehicleRows, medicRows);
@@ -150,7 +152,9 @@ function conductBlock(entry, cwos = {}, selectedBusCompany = null) {
 
 /** Build per-company CWO update text blocks for the month. */
 export function buildCompanySummaries(conducts, monthKey, cwos = {}) {
-  const inMonth = conducts
+  const indexedConducts = conducts.map((conduct, index) => ({ ...conduct, _busEntryOrder: index }));
+  const scheduledTrips = generateBusTripsForConducts(indexedConducts);
+  const inMonth = indexedConducts
     .filter((c) => conductOverlapsMonth(c, monthKey))
     .slice()
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
@@ -189,9 +193,9 @@ export function buildCompanySummaries(conducts, monthKey, cwos = {}) {
     });
 
   for (const conduct of normalizedEntries) {
-    pushBlock(conduct.companyCode, conductBlock(conduct, cwos));
+    pushBlock(conduct.companyCode, conductBlock(conduct, cwos, null, scheduledTrips));
     for (const followingCompany of conduct.followingCompanyCodes || []) {
-      const trips = busLines(conduct, followingCompany);
+      const trips = busLines(conduct, scheduledTrips, followingCompany);
       if (trips.length) {
         const header = `${formatDateRange(conduct)} ${conductDisplayName(conduct)}`;
         pushBlock(followingCompany, `${header}\n${trips.join('\n')}`);
@@ -202,7 +206,7 @@ export function buildCompanySummaries(conducts, monthKey, cwos = {}) {
   for (const legacy of legacyEntries) {
     const host = normalizedEntries.find((item) => item.followingCompanyCodes.includes(legacy.companyCode));
     if (!host) {
-      pushBlock(legacy.companyCode, conductBlock({ ...legacy, status: 'conducting' }, cwos));
+      pushBlock(legacy.companyCode, conductBlock({ ...legacy, status: 'conducting' }, cwos, null, scheduledTrips));
     }
   }
 

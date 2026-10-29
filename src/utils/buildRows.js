@@ -1,5 +1,5 @@
 import { generateIndents } from './rulesEngine.js';
-import { generateBusTrips } from './busEngine.js';
+import { generateBusTrips, generateBusTripsForConducts } from './busEngine.js';
 import { companyName, companySchool, schoolUnitLabel } from '../data/companies.js';
 import { formatDDMMYYYY, dayOfMonth, daysInMonth, isoForMonthDay } from './dateUtils.js';
 
@@ -113,10 +113,15 @@ export function buildMonthRows(conducts, cwos, monthKey, kind) {
   }
 
   if (kind === 'bus') {
-    return conducts
-      .flatMap((conduct, entryOrder) =>
-        busRowsForEntry(conduct).map((row) => ({ ...row, entryOrder })),
-      )
+    return generateBusTripsForConducts(conducts)
+      .map((trip) => ({
+        cells: ['', dayOfMonth(trip.day), '', trip.time, trip.companyCode, trip.tripName, trip.route, trip.buses],
+        sortDate: trip.day,
+        sortTime: trip.time,
+        entryId: conducts[trip.entryOrder]?.id,
+        entryOrder: trip.entryOrder,
+        scheduleWarning: trip.scheduleWarning || '',
+      }))
       .filter((row) => row.sortDate.slice(0, 7) === monthKey)
       .sort((a, b) =>
         a.sortDate.localeCompare(b.sortDate) ||
